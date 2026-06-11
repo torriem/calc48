@@ -105,6 +105,16 @@
 #define NR_RSTK		 8
 #define NR_PSTAT	16
 
+/* Scheduler reload values (formerly defined in emulate.c; moved here so the
+ * hp48_t instance initializer in context.c can reference them). */
+#define SCHED_INSTR_ROLLOVER	0x3fffffff
+#define SCHED_RECEIVE		0x7ff
+#define SCHED_ADJTIME		0x1ffe
+#define SCHED_TIMER1		0x1e00
+#define SCHED_TIMER2		0xf
+#define SCHED_STATISTICS	0x7ffff
+#define SCHED_NEVER		0x7fffffff
+
 typedef unsigned char  word_1;
 typedef unsigned char  word_4;
 typedef unsigned char  word_8;
@@ -267,13 +277,8 @@ typedef struct saturn_t {
 
 extern int		got_alarm;
 
-extern int		set_t1;
-extern long		sched_timer1;
-extern long		sched_timer2;
-
-extern int		adj_time_pending;
-extern long		sched_adjtime;
-extern long		schedule_event;
+/* set_t1, sched_timer1/2, adj_time_pending, sched_adjtime, schedule_event are
+ * now hp48_t members (see hp48_state.h) */
 
 /* `display` is now an hp48_t member, accessed as cpu->display (not bridged
  * by macro: the name collides with an SDL_video.h parameter) */

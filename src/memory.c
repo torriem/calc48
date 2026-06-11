@@ -91,7 +91,7 @@
 #include "resources.h"
 #include "mmu.h"
 
-extern int   device_check;
+/* device_check is an hp48_t member (hp48_state.h) */
 extern short port1_is_ram;
 extern long  port1_mask;
 extern short port2_is_ram;

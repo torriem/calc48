@@ -92,7 +92,7 @@ static int wire_fd;
 static int ir_fd;
 static int ttyp;
 
-extern int rece_instr;
+/* rece_instr is an hp48_t member (hp48_state.h) */
 
 static char *wire_name = (char *)0;
 static char *ir_name = (char *)0;

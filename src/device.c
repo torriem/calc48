@@ -64,7 +64,7 @@
 #include "timer.h"
 #include "x48_sdl.h"
 
-extern int device_check;
+/* device_check is an hp48_t member (hp48_state.h) */
 
 device_t device;
 

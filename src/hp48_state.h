@@ -32,6 +32,33 @@ typedef struct hp48_t {
   unsigned char lcd_buffer[DISP_ROWS][NIBS_PER_BUFFER_ROW];
   int           last_annunc_state;
 
+  /* --- instruction loop / event scheduler (emulate.c) --- */
+  long          jumpaddr;
+  unsigned long instructions;
+  unsigned long old_instr;
+  int           rece_instr;
+  int           device_check;
+  int           adj_time_pending;
+  int           set_t1;
+  long          schedule_event;
+  long          sched_instr_rollover;
+  long          sched_receive;
+  long          sched_adjtime;
+  long          sched_timer1;
+  long          sched_timer2;
+  long          sched_statistics;
+  long          sched_display;
+  unsigned long t1_i_per_tick;
+  unsigned long t2_i_per_tick;
+  unsigned long s_1;
+  unsigned long s_16;
+  unsigned long old_s_1;
+  unsigned long old_s_16;
+  unsigned long delta_t_1;
+  unsigned long delta_t_16;
+  unsigned long delta_i;
+  word_64       run;
+
 } hp48_t;
 
 /*
@@ -57,6 +84,34 @@ extern hp48_t *cpu;
 #define disp_buf          (cpu->disp_buf)
 #define lcd_buffer        (cpu->lcd_buffer)
 #define last_annunc_state (cpu->last_annunc_state)
+
+/* scheduler / instruction loop (emulate.c). NB: `run` is NOT bridged -- it
+ * collides with a local and a struct member in timer.c; its emulate.c call
+ * sites use cpu->run directly. */
+#define jumpaddr              (cpu->jumpaddr)
+#define instructions          (cpu->instructions)
+#define old_instr             (cpu->old_instr)
+#define rece_instr            (cpu->rece_instr)
+#define device_check          (cpu->device_check)
+#define adj_time_pending      (cpu->adj_time_pending)
+#define set_t1                (cpu->set_t1)
+#define schedule_event        (cpu->schedule_event)
+#define sched_instr_rollover  (cpu->sched_instr_rollover)
+#define sched_receive         (cpu->sched_receive)
+#define sched_adjtime         (cpu->sched_adjtime)
+#define sched_timer1          (cpu->sched_timer1)
+#define sched_timer2          (cpu->sched_timer2)
+#define sched_statistics      (cpu->sched_statistics)
+#define sched_display         (cpu->sched_display)
+#define t1_i_per_tick         (cpu->t1_i_per_tick)
+#define t2_i_per_tick         (cpu->t2_i_per_tick)
+#define s_1                   (cpu->s_1)
+#define s_16                  (cpu->s_16)
+#define old_s_1               (cpu->old_s_1)
+#define old_s_16              (cpu->old_s_16)
+#define delta_t_1             (cpu->delta_t_1)
+#define delta_t_16            (cpu->delta_t_16)
+#define delta_i               (cpu->delta_i)
 
 #endif /* !HP48_STATE_NO_BRIDGE */
 

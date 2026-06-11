@@ -18,7 +18,16 @@
  *  adds hp48_create(), this list moves into an init function.
  */
 static hp48_t default_instance = {
-    .last_annunc_state = -1,   /* lcd.c: force first annunciator redraw */
+    .last_annunc_state    = -1,   /* lcd.c: force first annunciator redraw */
+
+    /* emulate.c scheduler reload values */
+    .sched_instr_rollover = SCHED_INSTR_ROLLOVER,
+    .sched_receive        = SCHED_RECEIVE,
+    .sched_adjtime        = SCHED_ADJTIME,
+    .sched_timer1         = SCHED_TIMER1,
+    .sched_timer2         = SCHED_TIMER2,
+    .sched_statistics     = SCHED_STATISTICS,
+    .sched_display        = SCHED_NEVER,
 };
 
 hp48_t *cpu = &default_instance;

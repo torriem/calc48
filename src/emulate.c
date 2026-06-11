@@ -75,51 +75,14 @@ extern int throttle;
 #define DEBUG_DISP_SCHED
 #endif
 
-static long	jumpaddr;
-
-unsigned long	instructions = 0;
-unsigned long	old_instr = 0;
-
-int		rece_instr = 0;
-int		device_check = 0;
-
-int		adj_time_pending = 0;
-
-int		set_t1;
-
-long		schedule_event = 0;
+/* The instruction-loop / scheduler state (jumpaddr, instructions, sched_*,
+ * run, ...) now lives in hp48_t; see hp48_state.h.  SCHED_* defaults moved to
+ * hp48.h so the instance initializer in context.c can use them. */
 
 #define		SrvcIoStart		0x3c0
 #define		SrvcIoEnd		0x5ec
 
-#define		SCHED_INSTR_ROLLOVER	0x3fffffff
-#define		SCHED_RECEIVE		0x7ff
-#define		SCHED_ADJTIME		0x1ffe
-#define		SCHED_TIMER1		0x1e00
-#define		SCHED_TIMER2		0xf
-#define		SCHED_STATISTICS	0x7ffff
-#define		SCHED_NEVER		0x7fffffff
-
 #define		NR_SAMPLES 10
-
-long		sched_instr_rollover = SCHED_INSTR_ROLLOVER;
-long		sched_receive = SCHED_RECEIVE;
-long		sched_adjtime = SCHED_ADJTIME;
-long		sched_timer1 = SCHED_TIMER1;
-long		sched_timer2 = SCHED_TIMER2;
-long		sched_statistics = SCHED_STATISTICS;
-long		sched_display = SCHED_NEVER;
-
-unsigned long	t1_i_per_tick;
-unsigned long	t2_i_per_tick;
-unsigned long	s_1;
-unsigned long	s_16;
-unsigned long	old_s_1;
-unsigned long	old_s_16;
-unsigned long	delta_t_1;
-unsigned long	delta_t_16;
-unsigned long	delta_i;
-word_64		run;
 
 static word_20 jumpmasks[] = {
   0xffffffff, 0xfffffff0, 0xffffff00, 0xfffff000,
@@ -2363,10 +2326,10 @@ schedule()
 
   if ((sched_statistics -= steps) <= 0) {
     sched_statistics = SCHED_STATISTICS;
-    run = get_timer(RUN_TIMER);
+    cpu->run = get_timer(RUN_TIMER);
 #ifndef SIMPLE_64
-    s_1 = (run.hi << 19) | (run.lo >> 13);
-    s_16 = (run.hi << 23) | (run.lo >> 9);
+    s_1 = (cpu->run.hi << 19) | (cpu->run.lo >> 13);
+    s_16 = (cpu->run.hi << 23) | (cpu->run.lo >> 9);
 #endif
     delta_t_1 = s_1 - old_s_1;
     delta_t_16 = s_16 - old_s_16;
