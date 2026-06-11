@@ -251,11 +251,66 @@ t.start();
 - `hp48_get_lcd()` — read the LCD pixel buffer (for hosts that pull rather than
   receive `draw_nibble` pushes).
 
-### Phase 5 — Ship `libhp48.so` + Python binding
+### Phase 5 — Persistence API, `libhp48.so`, and a Python binding
 
-- Build `libhp48.a` / `libhp48.so` (pure C).
-- Provide a Python binding example (cffi / ctypes).
-- The SDL frontend becomes just one client of the same API.
+#### How persistence works today (to be wrapped, not rewritten)
+
+The emulator manages four on-disk resources, all in one directory
+(`homeDirectory`, default `~/.hp48`, resolved by `get_home_directory`,
+init.c:1106). That directory is both the load source and the save target.
+
+| File          | Contents                                            | Saved?            |
+|---------------|-----------------------------------------------------|-------------------|
+| `rom`         | HP48 ROM image (GX/SX detected from it -> `opt_gx`)  | no (read-only)    |
+| `hp48`        | the whole `saturn_t` CPU + peripheral snapshot       | yes               |
+| `ram`         | calculator RAM, packed two nibbles/byte              | yes               |
+| `port1`,`port2`| plug-in memory cards (RAM/ROM), packed nibbles      | yes, if present   |
+
+- **Load** -- `init_emulator()` (init.c:1790): if `!initialize` and
+  `read_files()` (init.c:1157) succeeds, the saved set is loaded; otherwise
+  `init_saturn()` + `read_rom(romFileName)` boots fresh from ROM only.
+  `read_files()` reads `rom`, then `hp48` (a MAGIC + 4-byte version header with
+  versioned readers `read_version_0_3_0/0_4_0_file`, and an old raw-struct
+  fallback via `old_saturn`), mallocs and reads `ram`, and optionally
+  `stat`s/loads `port1`/`port2` (size from the file; RAM-vs-ROM inferred from
+  the file's `S_IWUSR` write bit -> `card_status`).
+- **Save** -- `exit_emulator()` -> `write_files()` (init.c:1605): mkdir the dir
+  (fallback `/tmp`), write `hp48` field-by-field (`write_8/16/32/char`, so the
+  format is endian-independent and versioned), then `ram`/`port1`/`port2`. The
+  ROM is never written. **Save is exit-only; there is no autosave.**
+
+Already instance-aware: these operate on `cpu->saturn` and the migrated
+`opt_gx`/`rom_size`/`port*`/`rom_is_new`, so they act on the active instance
+via the Phase 2 bridge. The rough edges are the *paths* and the *conflation*
+of load-vs-fresh, both addressed below.
+
+#### Persistence API (wrap the existing readers/writers; explicit paths)
+
+- `hp48_load_rom(const char *path)` -- thin wrapper over `read_rom_file`;
+  populates `cpu->saturn.rom`, `rom_size`, `opt_gx`.
+- `hp48_load_state(const char *dir)` -- `read_files()` against an explicit
+  directory instead of the global `homeDirectory` (keeps the MAGIC/version and
+  legacy-format handling).
+- `hp48_save_state(const char *dir)` -- `write_files()` to an explicit
+  directory; callable by the host whenever it wants (not just at exit).
+- `hp48_init_from_rom()` -- the `init_saturn()` + ROM path, split out from
+  `init_emulator()` so "load existing" and "fresh boot" are distinct API calls
+  rather than one flag (`initialize`).
+
+Implementation note: refactor `read_files`/`write_files`/`get_home_directory`
+to take a directory argument; the current SDL front end passes
+`homeDirectory`, so its behavior is unchanged. This also removes the core's
+hidden dependency on `get_resources()` for paths -- a step toward folding the
+remaining `resources.c` config into the instance / an `hp48_config` (the
+Phase 2 deferred item).
+
+#### Ship it
+
+- Build `libhp48.a` / `libhp48.so` (pure C, no SDL -- already true as of
+  Phase 3).
+- Provide a Python binding example (cffi / ctypes) exercising create -> load
+  rom/state -> set_ui (or get_lcd) -> run_slice -> press_key -> save_state.
+- The SDL front end becomes just one client of the same API.
 
 ## Progress / status
 
