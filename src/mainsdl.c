@@ -106,9 +106,6 @@ int sig;
     case SIGINT:
       enter_debugger |= USER_INTERRUPT;
       break;
-    case SIGALRM:
-      got_alarm = 1;
-      break;
     case SIGPIPE:
       exit_x48(0);
       exit (0);
@@ -231,19 +228,6 @@ char **argv;
 	init_active_stuff();
 	
 	/*
-	*  install a handler for SIGALRM
-	*/
-	printf("SIGALRM\n");
-	sigemptyset(&set);
-	sigaddset(&set, SIGALRM);
-	sa.sa_handler = signal_handler;
-	sa.sa_mask = set;
-	#ifdef SA_RESTART
-	sa.sa_flags = SA_RESTART;
-	#endif
-	sigaction(SIGALRM, &sa, (struct sigaction *)0);
-	
-	/*
 	*  install a handler for SIGINT
 	*/
 	printf("SIGINT\n");
@@ -270,17 +254,6 @@ char **argv;
 	sigaction(SIGPIPE, &sa, (struct sigaction *)0);
 	
 	/*
-	* set the real time interval timer
-	*/
-	printf("int timer\n");
-	int interval = 20000;
-	it.it_interval.tv_sec = 0;
-	it.it_interval.tv_usec = interval;
-	it.it_value.tv_sec = 0;
-	it.it_value.tv_usec = interval;
-	setitimer(ITIMER_REAL, &it, (struct itimerval *)0);
-	
-	/*
 	* Set stdin flags to not include O_NDELAY and O_NONBLOCK
 	*/
 	printf("stdin flags\n");
@@ -288,20 +261,29 @@ char **argv;
 	flags &= ~O_NDELAY;
 	flags &= ~O_NONBLOCK;
 	fcntl(STDIN_FILENO, F_SETFL, flags);
-	
-	
-	printf("start emulate\n");	
-	
+
+
+	printf("start emulate\n");
+
+	/*
+	* Cooperative loop (Phase 4): this front end owns the loop. Pump our own
+	* events, then run the emulator for ~one frame and return. When the
+	* calculator is asleep (SHUTDN) the slice returns immediately, so we idle
+	* the frame instead of spinning. There is no more SIGALRM/setitimer.
+	*/
+	hp48_start();
 	do
 	{
-		if (!exec_flags)
-			emulate ();
-		else
-			emulate_debug ();
-	
-		debug();
+		SDLGetEvent();
+
+		int status = hp48_run_slice(20000);   /* ~20 ms / 50 Hz */
+
+		if (status == HP48_DEBUG)
+			debug();
+		else if (status == HP48_HALTED)
+			SDL_Delay(20);                     /* calculator idle: don't spin */
 	} while (1);
-	
+
 	return 0;
 }
 

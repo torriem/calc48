@@ -161,12 +161,6 @@ static void sdl_ui_draw_annunc(void *user, int val)
   SDLDrawAnnunc(state);
 }
 
-static int sdl_ui_get_event(void *user)
-{
-  (void)user;
-  return SDLGetEvent();
-}
-
 static void sdl_ui_adjust_contrast(void *user, int contrast)
 {
   (void)user;
@@ -192,7 +186,6 @@ void register_sdl_ui(void)
   ui.user             = NULL;
   ui.draw_nibble      = sdl_ui_draw_nibble;
   ui.draw_annunc      = sdl_ui_draw_annunc;
-  ui.get_event        = sdl_ui_get_event;
   ui.adjust_contrast  = sdl_ui_adjust_contrast;
   ui.show_connections = sdl_ui_show_connections;
   ui.exit             = sdl_ui_exit;

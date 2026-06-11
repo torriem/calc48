@@ -2387,34 +2387,25 @@ schedule()
 #endif
 
   schedule_event--;
-
-  if (got_alarm) {
-    got_alarm = 0;
-    if (cpu->ui.get_event)
-      cpu->ui.get_event(cpu->ui.user);
-  }
 }
 
-int
+/*
+ *  One-time run setup (Phase 4): formerly the head of emulate().  Call once
+ *  after the ROM/state is loaded, before the first hp48_run_slice().
+ */
+void
 #ifdef __FunctionProto__
-emulate(void)
+hp48_start(void)
 #else
-emulate()
+hp48_start()
 #endif
 {
-  struct timeval  tv;
-  struct timeval  tv2;
-#ifndef SOLARIS
-  struct timezone tz;
-#endif
-
   reset_timer(T1_TIMER);
   reset_timer(RUN_TIMER);
   reset_timer(IDLE_TIMER);
 
   set_accesstime();
   start_timer(T1_TIMER);
-
   start_timer(RUN_TIMER);
 
   sched_timer1 = t1_i_per_tick = saturn.t1_tick;
@@ -2422,66 +2413,73 @@ emulate()
 
   set_t1 = saturn.timer1;
 
+  halted = 0;
+}
 
-	do 
-	{
-		step_instruction();
-
-		int i;
-		for (i=0;i < sizeof(saturn.keybuf.rows)/sizeof(saturn.keybuf.rows[0]);i++)
-		{
-			if (saturn.keybuf.rows[i] || throttle)
-			{
-#ifndef PLATFORM_CYGWIN		
-		
-#ifdef SOLARIS
-				gettimeofday(&tv);
+/*
+ *  Cooperative run step (Phase 4): execute instructions for up to budget_us of
+ *  real time, then return so the host can pump its event loop.  Returns:
+ *    HP48_HALTED  - CPU is in SHUTDN light-sleep; the host may idle until input
+ *    HP48_DEBUG   - enter_debugger tripped; the host should run the debugger
+ *    HP48_RUNNING - budget elapsed; keep ticking
+ *
+ *  The schedule()/get_t1_t2() machinery still reconciles the HP48 timers to
+ *  gettimeofday() internally, so the calculator's clock stays correct
+ *  regardless of how often this is called.
+ */
+int
+#ifdef __FunctionProto__
+hp48_run_slice(int budget_us)
 #else
-				gettimeofday(&tv, &tz);
+hp48_run_slice(budget_us)
+int budget_us;
+#endif
+{
+  struct timeval t0, now;
+#ifndef SOLARIS
+  struct timezone tz;
 #endif
 
-         	//while ((tv.tv_sec == tv2.tv_sec) && ((tv.tv_usec - tv2.tv_usec) < 2))
-         	/*while ((tv.tv_sec == tv2.tv_sec) && ((tv.tv_usec - tv2.tv_usec) < 1))
-         	{
-	    			gettimeofday(&tv, &tz);
-				}
-				tv2.tv_usec = tv.tv_usec;
-				tv2.tv_sec = tv.tv_sec;*/
-				
-				//usleep(1);
-				
+  /* Parked in SHUTDN light-sleep: re-check wake conditions cheaply. */
+  if (halted) {
+    if (!hp48_check_wakeup())
+      return HP48_HALTED;
+    halted = 0;
+    stop_timer(IDLE_TIMER);
+    start_timer(RUN_TIMER);
+  }
+
+#ifdef SOLARIS
+  gettimeofday(&t0);
+#else
+  gettimeofday(&t0, &tz);
 #endif
-				
-				break;
-			}
-		}
 
-
-
-		if (schedule_event < 0)
-		{
-			//puts("bug");
-			//	schedule_event = 0;
-		}
-		if (schedule_event-- <= 0)
-		{
-	  		schedule();
-		}
-	}while (!enter_debugger);
-	
-
-	printf("emulate: returning\n");
-
-	// Version from android:
-	/*
-   do {
+  do {
     step_instruction();
-    if (schedule_event-- == 0)
-      {
-        schedule();
-      }
-  } while (!enter_debugger); // exit_state
-*/
-    
-  return 0;
+
+    if (exec_flags && hp48_debug_check())
+      break;
+
+    if (schedule_event-- <= 0)
+      schedule();
+
+    if (halted)                 /* SHUTDN executed in this instruction */
+      return HP48_HALTED;
+
+    /* Bound the slice by real elapsed time, sampled every ~1024 instructions
+     * so we are not calling gettimeofday() on every instruction. */
+    if ((instructions & 0x3ff) == 0) {
+#ifdef SOLARIS
+      gettimeofday(&now);
+#else
+      gettimeofday(&now, &tz);
+#endif
+      if (((now.tv_sec  - t0.tv_sec) * 1000000L +
+           (now.tv_usec - t0.tv_usec)) >= budget_us)
+        break;
+    }
+  } while (!enter_debugger);
+
+  return enter_debugger ? HP48_DEBUG : HP48_RUNNING;
 }

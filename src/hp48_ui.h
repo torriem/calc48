@@ -41,9 +41,6 @@ typedef struct hp48_ui_t {
   /* Redraw the annunciators given the raw annunciator bitmask. */
   void (*draw_annunc)(void *user, int annunc);
 
-  /* Pump UI/input events; return non-zero if the emulator should stop. */
-  int  (*get_event)(void *user);
-
   /* The LCD contrast level changed. */
   void (*adjust_contrast)(void *user, int contrast);
 

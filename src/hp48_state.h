@@ -104,6 +104,9 @@ typedef struct hp48_t {
   disp_t    disp;
   hp48_ui_t ui;
 
+  /* --- run-loop state (Phase 4) --- */
+  int       halted;   /* CPU parked in SHUTDN light-sleep; see hp48_run_slice */
+
 } hp48_t;
 
 /*
@@ -201,6 +204,9 @@ extern hp48_t *cpu;
 /* LCD geometry (Phase 3) and the `ui` callbacks are addressed as cpu->disp /
  * cpu->ui directly at their call sites, not bridged: `disp` collides with a
  * disassembler local in disasm.c. */
+
+/* run-loop state (Phase 4) */
+#define halted                (cpu->halted)
 
 #endif /* !HP48_STATE_NO_BRIDGE */
 

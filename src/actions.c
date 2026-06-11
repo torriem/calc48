@@ -603,14 +603,11 @@ do_shutdown(void)
 do_shutdown()
 #endif
 {
-  int wake, alarms;
-  t1_t2_ticks ticks;
-
   if (device.display_touched) {
     device.display_touched = 0;
     update_display();
   }
-  
+
   stop_timer(RUN_TIMER);
   start_timer(IDLE_TIMER);
 
@@ -629,80 +626,85 @@ do_shutdown()
           saturn.PC, saturn.t2_ctrl, saturn.timer2);
 #endif
 
-  if (in_debugger)
+  /*
+   *  Cooperative model (Phase 4): instead of blocking here in a pause() loop
+   *  pumping events ourselves, park the CPU and return.  hp48_run_slice()
+   *  reports HP48_HALTED to the host, which keeps ticking us; hp48_check_wakeup()
+   *  (below) decides each tick whether to resume.
+   */
+  interrupt_called = 0;
+  halted = 1;
+}
+
+/*
+ *  Called once per slice while halted (from hp48_run_slice).  Returns non-zero
+ *  when the calculator should wake.  This is the body of the old do_shutdown()
+ *  pause-loop, minus pause()/got_alarm and minus the event pump: the host pumps
+ *  its own events between slices, and a key press routes through do_kbd_int()
+ *  which sets interrupt_called -- our wake-on-key signal.
+ */
+int
+#ifdef __FunctionProto__
+hp48_check_wakeup(void)
+#else
+hp48_check_wakeup()
+#endif
+{
+  int wake;
+  t1_t2_ticks ticks;
+
+  wake = in_debugger ? 1 : 0;
+
+  ticks = get_t1_t2();
+  if (saturn.t2_ctrl & 0x01) {
+    saturn.timer2 = ticks.t2_ticks;
+  }
+  saturn.timer1 = set_t1 - ticks.t1_ticks;
+  set_t1 = ticks.t1_ticks;
+
+  if (interrupt_called)
     wake = 1;
-  else
-    wake = 0;
 
-  alarms = 0;
-
-  do {
-
-    pause();
-
-    if (got_alarm) {
-      got_alarm = 0;
-
-      ticks = get_t1_t2();
-      if (saturn.t2_ctrl & 0x01) {
-        saturn.timer2 = ticks.t2_ticks;
-      }
-      saturn.timer1 = set_t1 - ticks.t1_ticks;
-      set_t1 = ticks.t1_ticks;
-
-      interrupt_called = 0;
-      if (cpu->ui.get_event && cpu->ui.get_event(cpu->ui.user)) {
-        if (interrupt_called)
-          wake = 1;
-      }
-
-      if (saturn.timer2 <= 0)
+  if (saturn.timer2 <= 0)
+    {
+      if (saturn.t2_ctrl & 0x04)
         {
-          if (saturn.t2_ctrl & 0x04)
-            {
-              wake = 1;
-            }
-          if (saturn.t2_ctrl & 0x02)
-            {
-              wake = 1;
-              saturn.t2_ctrl |= 0x08;
-              do_interupt();
-            }
-        }
-
-      if (saturn.timer1 <= 0)
-        {
-          saturn.timer1 &= 0x0f;
-          if (saturn.t1_ctrl & 0x04)
-            {
-              wake = 1;
-            }
-          if (saturn.t1_ctrl & 0x03)
-            {
-              wake = 1;
-              saturn.t1_ctrl |= 0x08;
-              do_interupt();
-            }
-        }
-
-      if (wake == 0) {
-        interrupt_called = 0;
-        receive_char();
-        if (interrupt_called)
           wake = 1;
-      }
-
-      alarms++;
+        }
+      if (saturn.t2_ctrl & 0x02)
+        {
+          wake = 1;
+          saturn.t2_ctrl |= 0x08;
+          do_interupt();
+        }
     }
 
-    if (enter_debugger)
-      {
-        wake = 1;
-      }
-  } while (wake == 0);
+  if (saturn.timer1 <= 0)
+    {
+      saturn.timer1 &= 0x0f;
+      if (saturn.t1_ctrl & 0x04)
+        {
+          wake = 1;
+        }
+      if (saturn.t1_ctrl & 0x03)
+        {
+          wake = 1;
+          saturn.t1_ctrl |= 0x08;
+          do_interupt();
+        }
+    }
 
-  stop_timer(IDLE_TIMER);
-  start_timer(RUN_TIMER);
+  if (wake == 0) {
+    interrupt_called = 0;
+    receive_char();
+    if (interrupt_called)
+      wake = 1;
+  }
+
+  if (enter_debugger)
+    wake = 1;
+
+  return wake;
 }
 
 void

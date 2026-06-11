@@ -2030,34 +2030,26 @@ debug ()
   return 0;
 }
 
+/*
+ *  Phase 4 breakpoint hook: called from hp48_run_slice() after each
+ *  instruction when exec_flags has debug bits set.  Returns non-zero to break
+ *  out to the debugger.  Keeps the breakpoint internals (check_breakpoint,
+ *  BP_EXEC, BREAKPOINT_HIT) here in debugger.c.
+ */
 int
 #ifdef __FunctionProto__
-emulate_debug (void)
+hp48_debug_check (void)
 #else
-emulate_debug ()
+hp48_debug_check ()
 #endif
 {
-  do
+  if (exec_flags & EXEC_BKPT)
     {
-
-      step_instruction ();
-
-      if (exec_flags & EXEC_BKPT)
+      if (check_breakpoint (BP_EXEC, saturn.PC))
 	{
-	  if (check_breakpoint (BP_EXEC, saturn.PC))
-	    {
-	      enter_debugger |= BREAKPOINT_HIT;
-	      break;
-	    }
+	  enter_debugger |= BREAKPOINT_HIT;
+	  return 1;
 	}
-
-      if (schedule_event-- == 0)
-	{
-	  schedule ();
-	}
-
     }
-  while (!enter_debugger);
-
   return 0;
 }

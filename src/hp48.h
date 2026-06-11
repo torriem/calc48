@@ -299,7 +299,14 @@ extern void		do_interupt __ProtoType__((void));
 /* write_nibble/read_nibble/read_nibble_crc are now hp48_t members (function
  * pointers selected per sx/gx ROM; see hp48_state.h) */
 
-extern int		emulate	__ProtoType__((void));
+/* hp48_run_slice() return status (Phase 4). */
+#define HP48_RUNNING	0	/* slice budget elapsed; keep ticking */
+#define HP48_HALTED	1	/* CPU in SHUTDN light-sleep; host may idle */
+#define HP48_DEBUG	2	/* enter_debugger tripped; run the debugger */
+
+extern void		hp48_start __ProtoType__((void));
+extern int		hp48_run_slice __ProtoType__((int budget_us));
+extern int		hp48_check_wakeup __ProtoType__((void));
 extern int		step_instruction __ProtoType__((void));
 extern void		schedule __ProtoType__((void));
 

@@ -59,7 +59,7 @@ extern int	exec_flags;
 
 extern void	init_debugger	__ProtoType__((void));
 extern int	debug		__ProtoType__((void));
-extern int	emulate_debug	__ProtoType__((void));
+extern int	hp48_debug_check __ProtoType__((void));
 
 extern char    *str_nibbles	__ProtoType__((word_20 addr, int n));
 
