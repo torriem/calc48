@@ -80,7 +80,6 @@
 #include "hp48.h"
 #include "device.h"
 #include "timer.h"
-#include "x48_sdl.h"
 #include "debugger.h"
 #include "disasm.h"
 #include "rpl.h"
@@ -1851,7 +1850,8 @@ debug ()
       if (enter_debugger & USER_INTERRUPT)
         if (verbose)
           printf ("%s: user interrupt (SIGINT) ignored\n", progname);
-        exit_x48(1);
+        if (cpu->ui.exit)
+          cpu->ui.exit(cpu->ui.user, 1);
       if (enter_debugger & BREAKPOINT_HIT)
         if (verbose)
           printf ("%s: breakpoint hit at 0x%.5lX ignored\n",

@@ -87,7 +87,7 @@
 #include <PDL.h>
 #endif
 
-char  *progname;
+/* progname is now defined by the core (context.c); we still assign it below. */
 char  *res_name;
 char  *res_class;
 
@@ -222,9 +222,10 @@ char **argv;
 
 	// Create the HP-48 window
 	SDLCreateHP();
-	
 
-	
+	// Install the SDL UI callbacks on the emulator core
+	register_sdl_ui();
+
 	// Some more initialization
 	printf("init active stuff\n");
 	init_active_stuff();

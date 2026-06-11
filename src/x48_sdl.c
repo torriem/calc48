@@ -124,9 +124,80 @@
 #endif
 
 
-disp_t		disp;
+/* `disp` is now an hp48_t member (cpu->disp); see hp48_ui.h. */
 keypad_t  keypad;
 color_t  *colors;
+
+/* Annunciator table -- moved here from lcd.c because it carries SDL surfaces.
+ * The core now passes the raw annunciator bitmask through cpu->ui.draw_annunc
+ * and this front end maps it to these widgets. */
+ann_struct_t ann_tbl[] = {
+  { ANN_LEFT, 16, 4, ann_left_width, ann_left_height, ann_left_bits },
+  { ANN_RIGHT, 61, 4, ann_right_width, ann_right_height, ann_right_bits },
+  { ANN_ALPHA, 106, 4, ann_alpha_width, ann_alpha_height, ann_alpha_bits },
+  { ANN_BATTERY, 151, 4, ann_battery_width, ann_battery_height,
+                         ann_battery_bits },
+  { ANN_BUSY, 196, 4, ann_busy_width, ann_busy_height, ann_busy_bits },
+  { ANN_IO, 241, 4, ann_io_width, ann_io_height, ann_io_bits },
+  { 0 }
+};
+
+/* ----------------------------------------------------------------------- */
+/* hp48_ui_t bridge: thin wrappers exposing the SDL front end to the core   */
+/* ----------------------------------------------------------------------- */
+static void sdl_ui_draw_nibble(void *user, int x, int y, int val)
+{
+  (void)user;
+  SDLDrawNibble(x, y, val);
+}
+
+static void sdl_ui_draw_annunc(void *user, int val)
+{
+  char state[6];
+  int  i;
+  (void)user;
+  for (i = 0; ann_tbl[i].bit; i++)
+    state[i] = ((ann_tbl[i].bit & val) == ann_tbl[i].bit) ? 1 : 0;
+  SDLDrawAnnunc(state);
+}
+
+static int sdl_ui_get_event(void *user)
+{
+  (void)user;
+  return SDLGetEvent();
+}
+
+static void sdl_ui_adjust_contrast(void *user, int contrast)
+{
+  (void)user;
+  adjust_contrast(contrast);
+}
+
+static void sdl_ui_show_connections(void *user, const char *wire, const char *ir)
+{
+  (void)user;
+  ShowConnections((char *)wire, (char *)ir);
+}
+
+static void sdl_ui_exit(void *user, int tell)
+{
+  (void)user;
+  exit_x48(tell);
+}
+
+void register_sdl_ui(void)
+{
+  hp48_ui_t ui;
+  memset(&ui, 0, sizeof(ui));
+  ui.user             = NULL;
+  ui.draw_nibble      = sdl_ui_draw_nibble;
+  ui.draw_annunc      = sdl_ui_draw_annunc;
+  ui.get_event        = sdl_ui_get_event;
+  ui.adjust_contrast  = sdl_ui_adjust_contrast;
+  ui.show_connections = sdl_ui_show_connections;
+  ui.exit             = sdl_ui_exit;
+  hp48_set_ui(&ui);
+}
 
 #ifdef PLATFORMWEBOS
 unsigned sdl_compact=1;
@@ -666,9 +737,9 @@ void SDLCreateHP()
 		width = KEYBOARD_WIDTH + 2 * SIDE_SKIP;
 		height = DISPLAY_OFFSET_Y + DISPLAY_HEIGHT + DISP_KBD_SKIP + KEYBOARD_HEIGHT + BOTTOM_SKIP;
 		
-		disp.mapped=1;
-		disp.w = DISPLAY_WIDTH;
-		disp.h = DISPLAY_HEIGHT;
+		cpu->disp.mapped=1;
+		cpu->disp.w = DISPLAY_WIDTH;
+		cpu->disp.h = DISPLAY_HEIGHT;
 		
 		keypad.width = width;
 		keypad.height = height;
@@ -703,9 +774,9 @@ void SDLCreateHP()
 		width = KEYBOARD_WIDTH + 2 * SIDE_SKIP;
 		height = DISPLAY_OFFSET_Y + DISPLAY_HEIGHT + DISP_KBD_SKIP + KEYBOARD_HEIGHT + BOTTOM_SKIP;
 		
-		disp.mapped=1;
-		disp.w = DISPLAY_WIDTH;
-		disp.h = DISPLAY_HEIGHT;
+		cpu->disp.mapped=1;
+		cpu->disp.w = DISPLAY_WIDTH;
+		cpu->disp.h = DISPLAY_HEIGHT;
 		
 		keypad.width = width;
 		keypad.height = height;

@@ -63,7 +63,6 @@
 
 #include "global.h"
 
-#include "x48_sdl.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,7 +113,8 @@ update_connection_display()
       if (ir_name) free(ir_name);
       ir_name = (char *)0;
     }
-  ShowConnections(wire_name, ir_name);
+  if (cpu->ui.show_connections)
+    cpu->ui.show_connections(cpu->ui.user, wire_name, ir_name);
 }
 
 int

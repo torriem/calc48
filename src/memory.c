@@ -86,7 +86,6 @@
 #include "hp48.h"
 #include "device.h"
 #include "hp48_emu.h"
-#include "x48_sdl.h"
 #include "romio.h"
 #include "resources.h"
 #include "mmu.h"
@@ -158,7 +157,7 @@ int val;
         saturn.disp_io = val;
         cpu->display.on = (val & 0x8) >> 3;
         cpu->display.offset = val & 0x7;
-        disp.offset = 2 * cpu->display.offset;
+        cpu->disp.offset = 2 * cpu->display.offset;
         if (cpu->display.offset > 3)
           cpu->display.nibs_per_line =
                   (NIBBLES_PER_ROW+saturn.line_offset+2) & 0xfff;
@@ -367,7 +366,7 @@ int val;
         cpu->display.lines = saturn.line_count & 0x3f;
 	if (cpu->display.lines == 0)
           cpu->display.lines = 63;
-        disp.lines = 2 * cpu->display.lines;
+        cpu->disp.lines = 2 * cpu->display.lines;
         cpu->display.disp_end = cpu->display.disp_start +
 		           (cpu->display.nibs_per_line * (cpu->display.lines + 1));
         device.display_touched = DISP_INSTR_OFF;
@@ -669,7 +668,7 @@ int val;
 #endif
       return;
   }
-  if (device.display_touched || !disp.mapped)
+  if (device.display_touched || !cpu->disp.mapped)
     return;
   if (addr >= cpu->display.disp_start && addr < cpu->display.disp_end)
     {
@@ -937,7 +936,7 @@ int val;
 #endif
         return;
     }
-  if (device.display_touched || !disp.mapped)
+  if (device.display_touched || !cpu->disp.mapped)
     return;
   if (addr >= cpu->display.disp_start && addr < cpu->display.disp_end)
     {

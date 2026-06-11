@@ -21,6 +21,7 @@
 
 #include "hp48.h"     /* saturn_t, display_t and friends */
 #include "device.h"   /* device_t */
+#include "hp48_ui.h"  /* disp_t, hp48_ui_t (SDL-free UI interface) */
 
 typedef struct hp48_t {
 
@@ -98,6 +99,10 @@ typedef struct hp48_t {
   int wire_fd;
   int ir_fd;
   int ttyp;
+
+  /* --- UI bridge (Phase 3): geometry + front-end callbacks --- */
+  disp_t    disp;
+  hp48_ui_t ui;
 
 } hp48_t;
 
@@ -192,6 +197,10 @@ extern hp48_t *cpu;
 #define wire_fd               (cpu->wire_fd)
 #define ir_fd                 (cpu->ir_fd)
 #define ttyp                  (cpu->ttyp)
+
+/* LCD geometry (Phase 3) and the `ui` callbacks are addressed as cpu->disp /
+ * cpu->ui directly at their call sites, not bridged: `disp` collides with a
+ * disassembler local in disasm.c. */
 
 #endif /* !HP48_STATE_NO_BRIDGE */
 

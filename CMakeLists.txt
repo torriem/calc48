@@ -100,10 +100,9 @@ if(UNIX AND NOT APPLE)
     target_compile_definitions(hp48 PRIVATE _GNU_SOURCE)
 endif()
 
-# TEMPORARY (removed in Phase 3): the core still calls into the SDL frontend
-# and includes x48_sdl.h, so it needs WITH_SDL and the SDL headers to compile.
-target_compile_definitions(hp48 PRIVATE WITH_SDL)
-target_link_libraries(hp48 PRIVATE sdl_compat)
+# As of Phase 3 the core has NO SDL dependency: it talks to any front end
+# through the hp48_ui_t callbacks (hp48_ui.h) and references no SDL symbols.
+# It therefore links with neither SDL nor libm, and can be built shared.
 
 # ---------------------------------------------------------------------------
 # x48: SDL frontend executable

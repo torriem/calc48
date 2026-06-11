@@ -72,6 +72,7 @@
 #define _X48_SDL_H 1
 
 #include "global.h"
+#include "hp48_ui.h"   /* disp_t (SDL-free) */
 
 
 #include "SDL.h"
@@ -198,12 +199,7 @@ typedef struct keypad_t {
   unsigned int	height;
 } keypad_t;
 
-typedef struct disp_t {
-  unsigned int     w, h;
-  short            mapped;
-  int		   offset;
-  int		   lines;
-} disp_t;
+/* disp_t now lives in hp48_ui.h (SDL-free, shared with the core). */
 
 typedef struct button_t {
 
@@ -260,7 +256,7 @@ typedef struct SDLWINDOW {
 
 extern color_t *colors;
 extern ann_struct_t ann_tbl[];
-extern disp_t   disp;
+/* `disp` is now an hp48_t member, reached via the cpu->disp bridge. */
 extern button_t *buttons;
 extern button_t buttons_sx[];
 extern button_t buttons_gx[];
@@ -288,6 +284,7 @@ extern SDL_Surface *sdlsurface;
 
 
 void SDLInit();
+void register_sdl_ui(void);   /* install the SDL hp48_ui_t on the core */
 void SDLDrawAnnunc(char *annunc);
 #define DISP_ROWS	       64
 #define NIBS_PER_BUFFER_ROW    (NIBBLES_PER_ROW + 2)

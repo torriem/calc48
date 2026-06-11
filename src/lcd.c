@@ -78,23 +78,13 @@
 
 #include "hp48.h"
 #include "hp48_emu.h"
-#include "x48_sdl.h"
-#include "annunc.h"
 #include "device.h"
 
 /* display, disp_buf, lcd_buffer, last_annunc_state are now hp48_t members
  * (see hp48_state.h). */
 
-ann_struct_t ann_tbl[] = {
-  { ANN_LEFT, 16, 4, ann_left_width, ann_left_height, ann_left_bits },
-  { ANN_RIGHT, 61, 4, ann_right_width, ann_right_height, ann_right_bits },
-  { ANN_ALPHA, 106, 4, ann_alpha_width, ann_alpha_height, ann_alpha_bits },
-  { ANN_BATTERY, 151, 4, ann_battery_width, ann_battery_height,
-                         ann_battery_bits },
-  { ANN_BUSY, 196, 4, ann_busy_width, ann_busy_height, ann_busy_bits },
-  { ANN_IO, 241, 4, ann_io_width, ann_io_height, ann_io_bits },
-  { 0 }
-};
+/* ann_tbl (annunciator table, carries SDL surfaces) lives in the front end
+ * now; the core passes the raw annunciator bitmask via cpu->ui.draw_annunc. */
 
 
 
@@ -110,14 +100,14 @@ init_display()
 
   cpu->display.disp_start = (saturn.disp_addr & 0xffffe);
   cpu->display.offset = (saturn.disp_io & 0x7);
-  disp.offset = 2 * cpu->display.offset;
+  cpu->disp.offset = 2 * cpu->display.offset;
 
   cpu->display.lines = (saturn.line_count & 0x3f);
   if (cpu->display.lines == 0)
     cpu->display.lines = 63;
-  disp.lines = 2 * cpu->display.lines;
-  if (disp.lines < 110)
-    disp.lines = 110;
+  cpu->disp.lines = 2 * cpu->display.lines;
+  if (cpu->disp.lines < 110)
+    cpu->disp.lines = 110;
 
   if (cpu->display.offset > 3)
     cpu->display.nibs_per_line = (NIBBLES_PER_ROW+saturn.line_offset+2) & 0xfff;
@@ -161,9 +151,10 @@ int val;
   	///////////////////////////////////////////////
 	x = (c * 4);					// x: start in pixels
 	if (r <= cpu->display.lines)
-		x -= disp.offset;			// Correct the pixels with display offset
+		x -= cpu->disp.offset;			// Correct the pixels with display offset
 	y = r;							// y: start in pixels
-  	SDLDrawNibble(x,y,val);
+  	if (cpu->ui.draw_nibble)
+  		cpu->ui.draw_nibble(cpu->ui.user, x, y, val);
 
 }
 
@@ -205,7 +196,7 @@ update_display()
   static int old_lines = -1;
 
 
-  	if (!disp.mapped)
+  	if (!cpu->disp.mapped)
 	{
       //refresh_icon();
 		return;
@@ -325,7 +316,6 @@ draw_annunc()
 #endif
 {
   int val;
-  int i;
 
   val = cpu->display.annunc;
 
@@ -333,18 +323,9 @@ draw_annunc()
     return;
   last_annunc_state = val;
 
-  ///////////////////////////////////////////////
-  // SDL PORT
-  ///////////////////////////////////////////////
-	char sdl_annuncstate[6];
-	for (i = 0; ann_tbl[i].bit; i++)
-	{
-		if ((ann_tbl[i].bit & val) == ann_tbl[i].bit)
-			sdl_annuncstate[i] = 1;
-		else
-			sdl_annuncstate[i] = 0;
-	}      	
-  SDLDrawAnnunc(sdl_annuncstate);
+  /* The front end maps the raw annunciator bitmask to its own widgets. */
+  if (cpu->ui.draw_annunc)
+    cpu->ui.draw_annunc(cpu->ui.user, val);
 }
 
 void

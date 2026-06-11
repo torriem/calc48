@@ -62,7 +62,6 @@
 #include "hp48_emu.h"
 #include "device.h"
 #include "timer.h"
-#include "x48_sdl.h"
 
 /* device_check and device are now hp48_t members (see hp48_state.h) */
 
@@ -82,7 +81,8 @@ check_devices()
   }
   if (device.contrast_touched) {
     device.contrast_touched = 0;
-    adjust_contrast(cpu->display.contrast);
+    if (cpu->ui.adjust_contrast)
+      cpu->ui.adjust_contrast(cpu->ui.user, cpu->display.contrast);
   }
   if (device.ann_touched) {
     device.ann_touched = 0;

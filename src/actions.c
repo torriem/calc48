@@ -94,7 +94,6 @@
 #include "hp48.h"
 #include "hp48_emu.h"
 #include "device.h"
-#include "x48_sdl.h"
 #include "timer.h"
 #include "debugger.h"
 #include "romio.h"
@@ -652,7 +651,7 @@ do_shutdown()
       set_t1 = ticks.t1_ticks;
 
       interrupt_called = 0;
-      if (SDLGetEvent()) {
+      if (cpu->ui.get_event && cpu->ui.get_event(cpu->ui.user)) {
         if (interrupt_called)
           wake = 1;
       }

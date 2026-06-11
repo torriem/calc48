@@ -61,7 +61,6 @@
 #include "hp48_emu.h"
 #include "device.h"
 #include "timer.h"
-#include "x48_sdl.h"
 #include "debugger.h"
 
 //#include "precisetimer.h"
@@ -2391,7 +2390,8 @@ schedule()
 
   if (got_alarm) {
     got_alarm = 0;
-    SDLGetEvent();
+    if (cpu->ui.get_event)
+      cpu->ui.get_event(cpu->ui.user);
   }
 }
 

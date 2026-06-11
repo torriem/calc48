@@ -34,3 +34,22 @@ static hp48_t default_instance = {
 };
 
 hp48_t *cpu = &default_instance;
+
+/*
+ *  Program name used in core diagnostic messages.  Owned by the core so that
+ *  libhp48 links standalone; the front end may overwrite it (e.g. from argv).
+ */
+char *progname = "x48";
+
+/* Install the front end's UI callbacks on the active instance. */
+void
+#ifdef __FunctionProto__
+hp48_set_ui(const hp48_ui_t *ui)
+#else
+hp48_set_ui(ui)
+const hp48_ui_t *ui;
+#endif
+{
+  if (ui)
+    cpu->ui = *ui;
+}
