@@ -79,11 +79,7 @@ char   romFileName[1024];
 char   homeDirectory[1024];
 
 void
-#ifdef __FunctionProto__
 get_resources(void)
-#else
-get_resources()
-#endif
 {/*
   if (get_boolean_resource("printVersion", "PrintVersion"))
     show_version();

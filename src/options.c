@@ -51,11 +51,7 @@
 #include "resources.h"
 
 void
-#ifdef __FunctionProto__
 usage(void)
-#else
-usage()
-#endif
 {
   fprintf(stdout, "\n\
 x48 Version %d.%d.%d, Copyright (c) 1994-2005 by Eddie C. Dost <ecd@dressler.de>.\n\
@@ -103,11 +99,7 @@ where options include:\n\
 }
 
 void
-#ifdef __FunctionProto__
 show_version(void)
-#else
-show_version()
-#endif
 {
   fprintf(stdout, "\n\
 %s Version %d.%d.%d, x48 is Copyright (c) 1994-2005 by Eddie C. Dost <ecd@dressler.de>.\n\
@@ -117,11 +109,7 @@ Compiled on %s by <%s> #%d\n\n",
 }
 
 void
-#ifdef __FunctionProto__
 show_copyright(void)
-#else
-show_copyright()
-#endif
 {
   fprintf(stdout, "\n\
                                COPYRIGHT\n\
@@ -145,11 +133,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.\n\n");
 }
 
 void
-#ifdef __FunctionProto__
 show_warranty(void)
-#else
-show_warranty()
-#endif
 {
   fprintf(stdout, "\n\
                               NO WARRANTY\n\

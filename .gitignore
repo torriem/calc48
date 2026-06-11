@@ -5,3 +5,8 @@
 *.o
 *.d
 *.exe
+
+# editor swap files
+*.swp
+*.swo
+*~

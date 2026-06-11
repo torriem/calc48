@@ -48,12 +48,7 @@ char *progname = "x48";
 
 /* Install the front end's UI callbacks on the active instance. */
 void
-#ifdef __FunctionProto__
 hp48_set_ui(const hp48_ui_t *ui)
-#else
-hp48_set_ui(ui)
-const hp48_ui_t *ui;
-#endif
 {
   if (ui)
     cpu->ui = *ui;
@@ -64,12 +59,7 @@ const hp48_ui_t *ui;
  *  default_instance carries.  Keep in sync with the initializer above.
  */
 void
-#ifdef __FunctionProto__
 hp48_init_defaults(hp48_t *h)
-#else
-hp48_init_defaults(h)
-hp48_t *h;
-#endif
 {
   memset(h, 0, sizeof(*h));
 
@@ -89,12 +79,7 @@ hp48_t *h;
 
 /* Select which instance the bridged globals (saturn, display, ...) resolve to. */
 void
-#ifdef __FunctionProto__
 hp48_set_active(hp48_t *h)
-#else
-hp48_set_active(h)
-hp48_t *h;
-#endif
 {
   if (h)
     cpu = h;
@@ -106,11 +91,7 @@ hp48_t *h;
  *  loads a ROM/state and calls hp48_start() before hp48_run_slice().
  */
 hp48_t *
-#ifdef __FunctionProto__
 hp48_create(void)
-#else
-hp48_create()
-#endif
 {
   hp48_t *h = (hp48_t *)malloc(sizeof(hp48_t));
 
@@ -127,12 +108,7 @@ hp48_create()
  *  default instance so the bridges stay valid.
  */
 void
-#ifdef __FunctionProto__
 hp48_destroy(hp48_t *h)
-#else
-hp48_destroy(h)
-hp48_t *h;
-#endif
 {
   if (!h)
     return;

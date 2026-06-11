@@ -95,12 +95,7 @@ int    saved_argc;
 char **saved_argv;
 
 void
-#ifdef __FunctionProto__
 signal_handler(int sig)
-#else
-signal_handler(sig)
-int sig;
-#endif
 {
   switch (sig) {
     case SIGINT:
@@ -145,13 +140,7 @@ void pdlexit()
 #endif
 
 int
-#ifdef __FunctionProto__
 main(int argc, char **argv)
-#else
-main(argc, argv)
-int argc;
-char **argv;
-#endif
 {
 	int rv,i;
 	char *name;	

@@ -105,11 +105,7 @@ extern long	nibble_masks[16];
  * in context.c. */
 
 void
-#ifdef __FunctionProto__
 do_in(void)
-#else
-do_in()
-#endif
 {
   int i, in, out;
 
@@ -151,45 +147,25 @@ do_in()
 }
 
 void
-#ifdef __FunctionProto__
 clear_program_stat(int n)
-#else
-clear_program_stat(n)
-int n;
-#endif
 {
   saturn.PSTAT[n] = 0;
 }
 
 void
-#ifdef __FunctionProto__
 set_program_stat(int n)
-#else
-set_program_stat(n)
-int n;
-#endif
 {
   saturn.PSTAT[n] = 1;
 }
 
 int
-#ifdef __FunctionProto__
 get_program_stat(int n)
-#else
-get_program_stat(n)
-int n;
-#endif
 {
   return saturn.PSTAT[n];
 }
 
 void
-#ifdef __FunctionProto__
 register_to_status(unsigned char *r)
-#else
-register_to_status(r)
-unsigned char *r;
-#endif
 {
   int i;
 
@@ -199,12 +175,7 @@ unsigned char *r;
 }
 
 void
-#ifdef __FunctionProto__
 status_to_register(unsigned char *r)
-#else
-status_to_register(r)
-unsigned char *r;
-#endif
 {
   int i;
 
@@ -218,12 +189,7 @@ unsigned char *r;
 }
 
 void
-#ifdef __FunctionProto__
 swap_register_status(unsigned char *r)
-#else
-swap_register_status(r)
-unsigned char *r;
-#endif
 {
   int i, tmp;
 
@@ -239,11 +205,7 @@ unsigned char *r;
 }
 
 void
-#ifdef __FunctionProto__
 clear_status(void)
-#else
-clear_status()
-#endif
 {
   int i;
 
@@ -253,62 +215,31 @@ clear_status()
 }
 
 void
-#ifdef __FunctionProto__
 set_register_nibble(unsigned char *reg, int n, unsigned char val)
-#else
-set_register_nibble(reg, n, val)
-unsigned char *reg;
-int n;
-unsigned char val;
-#endif
 {
   reg[n] = val;
 }
 
 unsigned char
-#ifdef __FunctionProto__
 get_register_nibble(unsigned char *reg, int n)
-#else
-get_register_nibble(reg, n)
-unsigned char *reg;
-int n;
-#endif
 {
   return reg[n];
 }
 
 void
-#ifdef __FunctionProto__
 set_register_bit(unsigned char *reg, int n)
-#else
-set_register_bit(reg, n)
-unsigned char *reg;
-int n;
-#endif
 {
   reg[n/4] |= (1 << (n%4));
 }
 
 void
-#ifdef __FunctionProto__
 clear_register_bit(unsigned char *reg, int n)
-#else
-clear_register_bit(reg, n)
-unsigned char *reg;
-int n;
-#endif
 {
   reg[n/4] &= ~(1 << (n%4));
 }
 
 int
-#ifdef __FunctionProto__
 get_register_bit(unsigned char *reg, int n)
-#else
-get_register_bit(reg, n)
-unsigned char *reg;
-int n;
-#endif
 {
   return ((int)(reg[n/4] & (1 << (n%4))) > 0)?1:0;
 }
@@ -317,11 +248,7 @@ short conf_tab_sx[] = { 1, 2, 2, 2, 2, 0 };
 short conf_tab_gx[] = { 1, 2, 2, 2, 2, 0 };
 
 void
-#ifdef __FunctionProto__
 do_reset(void)
-#else
-do_reset()
-#endif
 {
   int i;
 
@@ -349,31 +276,19 @@ do_reset()
 }
 
 void
-#ifdef __FunctionProto__
 do_inton(void)
-#else
-do_inton()
-#endif
 {
   saturn.kbd_ien = 1;
 }
 
 void
-#ifdef __FunctionProto__
 do_intoff(void)
-#else
-do_intoff()
-#endif
 {
   saturn.kbd_ien = 0;
 }
 
 void
-#ifdef __FunctionProto__
 do_return_interupt(void)
-#else
-do_return_interupt()
-#endif
 {
   if (saturn.int_pending) {
 #ifdef DEBUG_INTERRUPT
@@ -402,11 +317,7 @@ do_return_interupt()
 }
 
 void
-#ifdef __FunctionProto__
 do_interupt(void)
-#else
-do_interupt()
-#endif
 {
   interrupt_called = 1;
   if (saturn.intenable) {
@@ -420,11 +331,7 @@ do_interupt()
 }
 
 void
-#ifdef __FunctionProto__
 do_kbd_int(void)
-#else
-do_kbd_int()
-#endif
 {
   interrupt_called = 1;
   if (saturn.intenable) {
@@ -450,12 +357,7 @@ do_kbd_int()
  *  the SDL front end used to do inline.
  */
 void
-#ifdef __FunctionProto__
 hp48_press_key(int code)
-#else
-hp48_press_key(code)
-int code;
-#endif
 {
   int i, r, c;
 
@@ -475,12 +377,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 hp48_release_key(int code)
-#else
-hp48_release_key(code)
-int code;
-#endif
 {
   int i, r, c;
 
@@ -495,11 +392,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 do_reset_interrupt_system(void)
-#else
-do_reset_interrupt_system()
-#endif
 {
   int i, gen_intr;
 
@@ -517,11 +410,7 @@ do_reset_interrupt_system()
 }
 
 void
-#ifdef __FunctionProto__
 do_unconfigure(void)
-#else
-do_unconfigure()
-#endif
 {
   int i;
   unsigned int conf;
@@ -560,11 +449,7 @@ do_unconfigure()
 }
 
 void
-#ifdef __FunctionProto__
 do_configure(void)
-#else
-do_configure()
-#endif
 {
   int i;
   unsigned long conf;
@@ -599,11 +484,7 @@ do_configure()
 }
 
 int
-#ifdef __FunctionProto__
 get_identification(void)
-#else
-get_identification()
-#endif
 {
   int i;
   static int chip_id[]
@@ -649,11 +530,7 @@ get_identification()
 }
 
 void
-#ifdef __FunctionProto__
 do_shutdown(void)
-#else
-do_shutdown()
-#endif
 {
   if (device.display_touched) {
     device.display_touched = 0;
@@ -696,11 +573,7 @@ do_shutdown()
  *  which sets interrupt_called -- our wake-on-key signal.
  */
 int
-#ifdef __FunctionProto__
 hp48_check_wakeup(void)
-#else
-hp48_check_wakeup()
-#endif
 {
   int wake;
   t1_t2_ticks ticks;
@@ -760,12 +633,7 @@ hp48_check_wakeup()
 }
 
 void
-#ifdef __FunctionProto__
 set_hardware_stat(int op)
-#else
-set_hardware_stat(op)
-int op;
-#endif
 {
   if (op & 1) saturn.XM = 1;
   if (op & 2) saturn.SB = 1;
@@ -774,12 +642,7 @@ int op;
 }
 
 void
-#ifdef __FunctionProto__
 clear_hardware_stat(int op)
-#else
-clear_hardware_stat(op)
-int op;
-#endif
 {
   if (op & 1) saturn.XM = 0;
   if (op & 2) saturn.SB = 0;
@@ -788,12 +651,7 @@ int op;
 }
 
 int
-#ifdef __FunctionProto__
 is_zero_hardware_stat(int op)
-#else
-is_zero_hardware_stat(op)
-int op;
-#endif
 {
   if (op & 1) if (saturn.XM != 0) return 0;
   if (op & 2) if (saturn.SB != 0) return 0;
@@ -803,12 +661,7 @@ int op;
 }
 
 void
-#ifdef __FunctionProto__
 push_return_addr(long addr)
-#else
-push_return_addr(addr)
-long addr;
-#endif
 {
   int i;
 
@@ -833,11 +686,7 @@ long addr;
 }
 
 long
-#ifdef __FunctionProto__
 pop_return_addr(void)
-#else
-pop_return_addr()
-#endif
 {
 #ifdef DEBUG_RSTK
   int i;
@@ -854,13 +703,7 @@ pop_return_addr()
 }
 
 char *
-#ifdef __FunctionProto__
 make_hexstr(long addr, int n)
-#else
-make_hexstr(addr, n)
-long addr;
-int n;
-#endif
 {
   static char str[44];
   int i, t, trunc;
@@ -888,14 +731,7 @@ int n;
 }
 
 void
-#ifdef __FunctionProto__
 load_constant(unsigned char *reg, int n, long addr)
-#else
-load_constant(reg, n, addr)
-unsigned char *reg;
-int n;
-long addr;
-#endif
 {
   int i, p;
 
@@ -907,14 +743,7 @@ long addr;
 }
 
 void
-#ifdef __FunctionProto__
 load_addr(word_20 *dat, long addr, int n)
-#else
-load_addr(dat, addr, n)
-word_20 *dat;
-long addr;
-int n;
-#endif
 {
   int i;
 
@@ -925,14 +754,7 @@ int n;
 }
 
 void
-#ifdef __FunctionProto__
 load_address(unsigned char *reg, long addr, int n)
-#else
-load_address(reg, addr, n)
-unsigned char *reg;
-long addr;
-int n;
-#endif
 {
   int i;
 
@@ -942,14 +764,7 @@ int n;
 }
 
 void
-#ifdef __FunctionProto__
 register_to_address(unsigned char *reg, word_20 *dat, int s)
-#else
-register_to_address(reg, dat, s)
-unsigned char *reg;
-word_20 *dat;
-int s;
-#endif
 {
   int i, n;
 
@@ -964,14 +779,7 @@ int s;
 }
 
 void
-#ifdef __FunctionProto__
 address_to_register(word_20 dat, unsigned char *reg, int s)
-#else
-address_to_register(dat, reg, s)
-word_20 dat;
-unsigned char *reg;
-int s;
-#endif
 {
   int i, n;
 
@@ -986,12 +794,7 @@ int s;
 }
 
 long
-#ifdef __FunctionProto__
 dat_to_addr(unsigned char *dat)
-#else
-dat_to_addr(dat)
-unsigned char *dat;
-#endif
 {
   int i;
   long addr;
@@ -1005,13 +808,7 @@ unsigned char *dat;
 }
  
 void
-#ifdef __FunctionProto__
 addr_to_dat(long addr, unsigned char *dat)
-#else
-addr_to_dat(addr, dat)
-long addr;
-unsigned char *dat;
-#endif
 {
   int i;
 
@@ -1022,13 +819,7 @@ unsigned char *dat;
 }
  
 void
-#ifdef __FunctionProto__
 add_address(word_20 *dat, int add)
-#else
-add_address(dat, add)
-word_20 *dat;
-int add;
-#endif
 {
   *dat += add;
   if (*dat & (word_20)0xfff00000) {
@@ -1052,12 +843,7 @@ static int end_fields[] = {
 };
 
 static inline int
-#ifdef __FunctionProto__
 get_start(int code)
-#else
-get_start(code)
-int code;
-#endif
 {
   int s;
 
@@ -1068,12 +854,7 @@ int code;
 }
 
 static inline int
-#ifdef __FunctionProto__
 get_end(int code)
-#else
-get_end(code)
-int code;
-#endif
 {
   int e;
 
@@ -1084,14 +865,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 store(word_20 dat, unsigned char *reg, int code)
-#else
-store(dat, reg, code)
-word_20 dat;
-unsigned char *reg;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -1103,14 +877,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 store_n(word_20 dat, unsigned char *reg, int n)
-#else
-store_n(dat, reg, n)
-word_20 dat;
-unsigned char *reg;
-int n;
-#endif
 {
   int i;
 
@@ -1120,14 +887,7 @@ int n;
 }
 
 void
-#ifdef __FunctionProto__
 recall(unsigned char *reg, word_20 dat, int code)
-#else
-recall(reg, dat, code)
-unsigned char *reg;
-word_20 dat;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -1139,14 +899,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 recall_n(unsigned char *reg, word_20 dat, int n)
-#else
-recall_n(reg, dat, n)
-unsigned char *reg;
-word_20 dat;
-int n;
-#endif
 {
   int i;
 

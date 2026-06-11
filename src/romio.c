@@ -38,14 +38,7 @@
 /* opt_gx, rom_size are now hp48_t members (see hp48_state.h) */
 
 int
-#ifdef __FunctionProto__
 read_rom_file(char *name, unsigned char **mem, int *size)
-#else
-read_rom_file(name, mem, size)
-char *name;
-unsigned char **mem;
-int *size;
-#endif
 {
   struct stat st;
   FILE *fp;

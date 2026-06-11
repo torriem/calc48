@@ -280,21 +280,21 @@ typedef struct saturn_t {
 
 /* `display` is now an hp48_t member, accessed as cpu->display (not bridged
  * by macro: the name collides with an SDL_video.h parameter) */
-extern void		init_display __ProtoType__((void));
+extern void		init_display (void);
 
 /* `saturn` is now a member of hp48_t, reached via the bridge in hp48_state.h */
 
-extern int		exit_emulator __ProtoType__((void));
-extern int		init_emulator __ProtoType__((void));
-extern void		init_active_stuff __ProtoType__((void));
+extern int		exit_emulator (void);
+extern int		init_emulator (void);
+extern void		init_active_stuff (void);
 
-extern int		serial_init __ProtoType__((void));
-extern void		serial_baud __ProtoType__((int baud));
-extern void		transmit_char __ProtoType__((void));
-extern void		receive_char __ProtoType__((void));
+extern int		serial_init (void);
+extern void		serial_baud (int baud);
+extern void		transmit_char (void);
+extern void		receive_char (void);
 
-extern void		do_kbd_int  __ProtoType__((void));
-extern void		do_interupt __ProtoType__((void));
+extern void		do_kbd_int  (void);
+extern void		do_interupt (void);
 
 /* write_nibble/read_nibble/read_nibble_crc are now hp48_t members (function
  * pointers selected per sx/gx ROM; see hp48_state.h) */
@@ -304,18 +304,18 @@ extern void		do_interupt __ProtoType__((void));
 #define HP48_HALTED	1	/* CPU in SHUTDN light-sleep; host may idle */
 #define HP48_DEBUG	2	/* enter_debugger tripped; run the debugger */
 
-extern void		hp48_start __ProtoType__((void));
-extern int		hp48_run_slice __ProtoType__((int budget_us));
-extern int		hp48_check_wakeup __ProtoType__((void));
-extern int		step_instruction __ProtoType__((void));
-extern void		schedule __ProtoType__((void));
+extern void		hp48_start (void);
+extern int		hp48_run_slice (int budget_us);
+extern int		hp48_check_wakeup (void);
+extern int		step_instruction (void);
+extern void		schedule (void);
 
-extern int              read_rom __ProtoType__((const char *fname));
-extern int              read_files __ProtoType__((const char *home));
-extern int              write_files __ProtoType__((const char *home));
+extern int              read_rom (const char *fname);
+extern int              read_files (const char *home);
+extern int              write_files (const char *home);
 
-extern void		load_addr __ProtoType__((word_20 *dat, long addr,
-						 int n));
+extern void		load_addr (word_20 *dat, long addr,
+						 int n);
 
 /* Per-instance state aggregation + active-context bridges (Phase 2). */
 #include "hp48_state.h"
@@ -324,21 +324,21 @@ extern void		load_addr __ProtoType__((word_20 *dat, long addr,
  * Flat C surface for embedders / FFI.  All calls operate on the currently
  * active instance (hp48_create()/hp48_set_active() select it).  hp48_set_ui()
  * is declared in hp48_ui.h; hp48_start()/hp48_run_slice() above. */
-extern hp48_t *hp48_create	__ProtoType__((void));
-extern void    hp48_destroy	__ProtoType__((hp48_t *h));
-extern void    hp48_set_active	__ProtoType__((hp48_t *h));
-extern void    hp48_init_defaults __ProtoType__((hp48_t *h));
-extern int     hp48_step	__ProtoType__((void));
-extern void    hp48_press_key	__ProtoType__((int code));
-extern void    hp48_release_key	__ProtoType__((int code));
-extern void    hp48_display_init __ProtoType__((void));
-extern const unsigned char *hp48_get_lcd __ProtoType__((int *rows,
-							 int *row_stride));
+extern hp48_t *hp48_create	(void);
+extern void    hp48_destroy	(hp48_t *h);
+extern void    hp48_set_active	(hp48_t *h);
+extern void    hp48_init_defaults (hp48_t *h);
+extern int     hp48_step	(void);
+extern void    hp48_press_key	(int code);
+extern void    hp48_release_key	(int code);
+extern void    hp48_display_init (void);
+extern const unsigned char *hp48_get_lcd (int *rows,
+							 int *row_stride);
 
 /* Persistence (Phase 5): explicit paths, active instance. 0 ok, <0 error. */
-extern int     hp48_load_rom	__ProtoType__((const char *path));
-extern int     hp48_init_from_rom __ProtoType__((const char *path));
-extern int     hp48_load_state	__ProtoType__((const char *dir));
-extern int     hp48_save_state	__ProtoType__((const char *dir));
+extern int     hp48_load_rom	(const char *path);
+extern int     hp48_init_from_rom (const char *path);
+extern int     hp48_load_state	(const char *dir);
+extern int     hp48_save_state	(const char *dir);
 
 #endif /* !_HP48_H */

@@ -46,8 +46,8 @@
 
 
 #if 0
-extern void	init_mmu	__ProtoType__((void));
-extern void	reset_mmu	__ProtoType__((void));
+extern void	init_mmu	(void);
+extern void	reset_mmu	(void);
 #endif
 
 #endif /* !_MMU_H */

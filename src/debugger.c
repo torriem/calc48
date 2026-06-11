@@ -129,28 +129,28 @@ bkpt_tbl[MAX_BREAKPOINTS + 1];
 /*
  * command functions
  */
-static void do_break __ProtoType__ ((int, char **));
-static void do_continue __ProtoType__ ((int, char **));
-static void do_delete __ProtoType__ ((int, char **));
-static void do_exit __ProtoType__ ((int, char **));
-static void do_go __ProtoType__ ((int, char **));
-static void do_help __ProtoType__ ((int, char **));
-static void do_load __ProtoType__ ((int, char **));
-static void do_mode __ProtoType__ ((int, char **));
-static void do_quit __ProtoType__ ((int, char **));
-static void do_regs __ProtoType__ ((int, char **));
-static void do_save __ProtoType__ ((int, char **));
-static void do_stack __ProtoType__ ((int, char **));
-static void do_stat __ProtoType__ ((int, char **));
-static void do_step __ProtoType__ ((int, char **));
-static void do_ram __ProtoType__ ((int, char **));
-static void do_reset __ProtoType__ ((int, char **));
-static void do_rstk __ProtoType__ ((int, char **));
+static void do_break (int, char **);
+static void do_continue (int, char **);
+static void do_delete (int, char **);
+static void do_exit (int, char **);
+static void do_go (int, char **);
+static void do_help (int, char **);
+static void do_load (int, char **);
+static void do_mode (int, char **);
+static void do_quit (int, char **);
+static void do_regs (int, char **);
+static void do_save (int, char **);
+static void do_stack (int, char **);
+static void do_stat (int, char **);
+static void do_step (int, char **);
+static void do_ram (int, char **);
+static void do_reset (int, char **);
+static void do_rstk (int, char **);
 
 struct cmd
   {
     const char *name;
-    void (*func) __ProtoType__ ((int, char **));
+    void (*func) (int, char **);
     const char *help;
   }
 
@@ -296,11 +296,7 @@ cmd_tbl[] =
 };
 
 void
-#ifdef __FunctionProto__
 init_debugger (void)
-#else
-init_debugger ()
-#endif
 {
   int i;
 
@@ -311,13 +307,7 @@ init_debugger ()
 }
 
 int
-#ifdef __FunctionProto__
 check_breakpoint (int type, word_20 addr)
-#else
-check_breakpoint (type, addr)
-     int type;
-     word_20 addr;
-#endif
 {
   struct breakpoint *bp;
   int i, n;
@@ -359,14 +349,7 @@ check_breakpoint (type, addr)
 }
 
 char *
-#ifdef __FunctionProto__
 read_str(char *str, int n, int fp)
-#else
-read_str(str, n, fp)
-	char *str;
-	int n;
-	int fp;
-#endif
 {
   int cc;
   int flags;
@@ -399,12 +382,7 @@ read_str(str, n, fp)
 
 #ifndef HAVE_READLINE
 char *
-#ifdef __FunctionProto__
 readline(const char *prompt)
-#else
-readline(prompt)
-	char *prompt;
-#endif
 {
   char rl[81];
   char *nrl;
@@ -440,12 +418,7 @@ readline(prompt)
 #endif
 
 static inline void
-#ifdef __FunctionProto__
 str_to_upper (char *arg)
-#else
-str_to_upper (arg)
-     char *arg;
-#endif
 {
   int i;
 
@@ -459,13 +432,7 @@ str_to_upper (arg)
 }
 
 static int
-#ifdef __FunctionProto__
 decode_dec (int *num, char *arg)
-#else
-decode_dec (num, arg)
-     int *num;
-     char *arg;
-#endif
 {
   int i;
 
@@ -494,13 +461,7 @@ decode_dec (num, arg)
 }
 
 static int
-#ifdef __FunctionProto__
 decode_20 (word_20 * addr, char *arg)
-#else
-decode_20 (addr, arg)
-     word_20 *addr;
-     char *arg;
-#endif
 {
   int i;
 
@@ -534,13 +495,7 @@ decode_20 (addr, arg)
 }
 
 static int
-#ifdef __FunctionProto__
 decode_32 (word_32 * addr, char *arg)
-#else
-decode_32 (addr, arg)
-     word_32 *addr;
-     char *arg;
-#endif
 {
   int i;
 
@@ -573,13 +528,7 @@ decode_32 (addr, arg)
 }
 
 static int
-#ifdef __FunctionProto__
 decode_64 (word_64 * addr, char *arg)
-#else
-decode_64 (addr, arg)
-     word_64 *addr;
-     char *arg;
-#endif
 {
   int i;
 
@@ -635,13 +584,7 @@ decode_64 (addr, arg)
 }
 
 char *
-#ifdef __FunctionProto__
 str_nibbles (word_20 addr, int n)
-#else
-str_nibbles (addr, n)
-     word_20 addr;
-     int n;
-#endif
 {
   static char str[1025];
   char *cp;
@@ -664,12 +607,7 @@ str_nibbles (addr, n)
 }
 
 static int
-#ifdef __FunctionProto__
 confirm (const char *prompt)
-#else
-confirm (prompt)
-     const char *prompt;
-#endif
 {
   char ans[80];
 
@@ -695,13 +633,7 @@ confirm (prompt)
 }
 
 static void
-#ifdef __FunctionProto__
 do_break (int argc, char **argv)
-#else
-do_break (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   int i;
   word_20 addr;
@@ -750,25 +682,13 @@ do_break (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_continue (int argc, char **argv)
-#else
-do_continue (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   continue_flag = 1;
 }
 
 static void
-#ifdef __FunctionProto__
 do_delete (int argc, char **argv)
-#else
-do_delete (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   int num;
 
@@ -846,13 +766,7 @@ do_delete (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_exit (int argc, char **argv)
-#else
-do_exit (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   if (confirm ("Exit the emulator WITHOUT saving its state?"))
     {
@@ -863,13 +777,7 @@ do_exit (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_go (int argc, char **argv)
-#else
-do_go (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   word_20 addr;
 
@@ -882,13 +790,7 @@ do_go (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_help (int argc, char **argv)
-#else
-do_help (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   int i;
 
@@ -902,13 +804,7 @@ do_help (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_load (int argc, char **argv)
-#else
-do_load (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   saturn_t tmp_saturn;
   device_t tmp_device;
@@ -967,13 +863,7 @@ do_load (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_mode (int argc, char **argv)
-#else
-do_mode (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   if (argc < 2)
     {
@@ -998,13 +888,7 @@ do_mode (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_quit (int argc, char **argv)
-#else
-do_quit (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   if (confirm ("Quit the emulator and save its state?"))
     {
@@ -1016,14 +900,7 @@ do_quit (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 set_reg (word_64 val, int n, unsigned char *r)
-#else
-set_reg (val, n, r)
-     word_64 val;
-     int n;
-     unsigned char *r;
-#endif
 {
   int i;
 
@@ -1038,14 +915,7 @@ set_reg (val, n, r)
 }
 
 static void
-#ifdef __FunctionProto__
 dump_reg (const char *reg, int n, unsigned char *r)
-#else
-dump_reg (reg, n, r)
-     const char *reg;
-     int n;
-     unsigned char *r;
-#endif
 {
   int i;
 
@@ -1059,12 +929,7 @@ dump_reg (reg, n, r)
 
 
 static void
-#ifdef __FunctionProto__
 set_st (word_64 val)
-#else
-set_st (val)
-     word_64 val;
-#endif
 {
   int i;
 
@@ -1077,11 +942,7 @@ set_st (val)
 }
 
 static void
-#ifdef __FunctionProto__
 dump_st (void)
-#else
-dump_st ()
-#endif
 {
   int i;
   int val;
@@ -1115,12 +976,7 @@ dump_st ()
 }
 
 static void
-#ifdef __FunctionProto__
 set_hst (word_64 val)
-#else
-set_hst (val)
-     word_64 val;
-#endif
 {
   saturn.XM = 0;
   saturn.SB = 0;
@@ -1148,11 +1004,7 @@ set_hst (val)
 }
 
 static void
-#ifdef __FunctionProto__
 dump_hst (void)
-#else
-dump_hst ()
-#endif
 {
   short hst = 0;
   if (saturn.XM != 0)
@@ -1187,13 +1039,7 @@ static const char *mctl_str_sx[] = {
 };
 
 static void
-#ifdef __FunctionProto__
 do_ram (int argc, char **argv)
-#else
-do_ram (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   int i;
 
@@ -1216,13 +1062,7 @@ do_ram (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_regs (int argc, char **argv)
-#else
-do_regs (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   int i;
   word_64 val;
@@ -1510,13 +1350,7 @@ do_regs (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_save (int argc, char **argv)
-#else
-do_save (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   if (write_files (homeDirectory))
     {
@@ -1535,11 +1369,7 @@ struct se {
 };
 
 char *
-#ifdef __FunctionProto__
 get_stack (void)
-#else
-get_stack ()
-#endif
 {
   word_20 dsktop, dskbot;
   word_20 sp = 0, end = 0, ent = 0;
@@ -1595,13 +1425,7 @@ get_stack ()
 }
 
 static void
-#ifdef __FunctionProto__
 do_stack (int argc, char **argv)
-#else
-do_stack (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   word_20 dsktop, dskbot;
   word_20 sp = 0, end = 0, ent = 0;
@@ -1682,13 +1506,7 @@ do_stack (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_stat (int argc, char **argv)
-#else
-do_stat (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   printf ("Instructions/s: %ld\n", saturn.i_per_s);
   printf ("Timer 1 I/TICK: %d\n", saturn.t1_tick);
@@ -1696,13 +1514,7 @@ do_stat (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_step (int argc, char **argv)
-#else
-do_step (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   word_20 next_instr;
   word_32 n;
@@ -1774,13 +1586,7 @@ do_step (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_reset (int argc, char **argv)
-#else
-do_reset (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   if (confirm ("Do a RESET (PC = 00000)?"))
     {
@@ -1790,13 +1596,7 @@ do_reset (argc, argv)
 }
 
 static void
-#ifdef __FunctionProto__
 do_rstk (int argc, char **argv)
-#else
-do_rstk (argc, argv)
-     int argc;
-     char *argv;
-#endif
 {
   int i, j;
 
@@ -1819,11 +1619,7 @@ do_rstk (argc, argv)
 }
 
 int
-#ifdef __FunctionProto__
 debug (void)
-#else
-debug ()
-#endif
 {
   t1_t2_ticks ticks;
   struct cmd *cmdp;
@@ -2037,11 +1833,7 @@ debug ()
  *  BP_EXEC, BREAKPOINT_HIT) here in debugger.c.
  */
 int
-#ifdef __FunctionProto__
 hp48_debug_check (void)
-#else
-hp48_debug_check ()
-#endif
 {
   if (exec_flags & EXEC_BKPT)
     {

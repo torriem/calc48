@@ -66,11 +66,7 @@
 /* device_check and device are now hp48_t members (see hp48_state.h) */
 
 void
-#ifdef __FunctionProto__
 check_devices(void)
-#else
-check_devices()
-#endif
 {
   if (device.display_touched > 0 && device.display_touched-- == 1) {
     device.display_touched = 0;
@@ -190,11 +186,7 @@ check_devices()
 #include <fcntl.h>
 
 void
-#ifdef __FunctionProto__
 check_out_register(void)
-#else
-check_out_register()
-#endif
 {
   static int au = -2;
   unsigned char c[] = { 0xff, 0x00 };

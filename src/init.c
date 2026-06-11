@@ -241,11 +241,7 @@ saturn_0_3_0_t saturn_0_3_0;
 #include "config.h"
 
 void
-#ifdef __FunctionProto__
 saturn_config_init(void)
-#else
-saturn_config_init()
-#endif
 {
   saturn.version[0] = VERSION_MAJOR;
   saturn.version[1] = VERSION_MINOR;
@@ -262,11 +258,7 @@ saturn_config_init()
 }
 
 void
-#ifdef __FunctionProto__
 init_saturn(void)
-#else
-init_saturn()
-#endif
 {
   int i;
 
@@ -303,13 +295,7 @@ init_saturn()
 }
 
 void
-#ifdef __FunctionProto__
 copy_old_saturn(old_saturn_t *old, saturn_t *newt)
-#else
-copy_old_saturn(old, newt)
-old_saturn_t *old;
-saturn_t *newt;
-#endif
 {
   int i;
 
@@ -457,13 +443,7 @@ saturn_t *newt;
 }
 
 void
-#ifdef __FunctionProto__
 copy_0_3_0_saturn(saturn_0_3_0_t *old, saturn_t *newt)
-#else
-copy_0_3_0_saturn(old, newt)
-saturn_0_3_0_t *old;
-saturn_t *newt;
-#endif
 {
   int i;
 
@@ -614,13 +594,7 @@ saturn_t *newt;
 }
 
 int
-#ifdef __FunctionProto__
 read_8(FILE *fp, word_8 *var)
-#else
-read_8(fp, var)
-FILE *fp;
-word_8 *var;
-#endif
 {
   unsigned char tmp;
 
@@ -634,13 +608,7 @@ word_8 *var;
 }
 
 int
-#ifdef __FunctionProto__
 read_char(FILE *fp, char *var)
-#else
-read_char(fp, var)
-FILE *fp;
-char *var;
-#endif
 {
   char tmp;
 
@@ -654,13 +622,7 @@ char *var;
 }
 
 int
-#ifdef __FunctionProto__
 read_16(FILE *fp, word_16 *var)
-#else
-read_16(fp, var)
-FILE *fp;
-word_16 *var;
-#endif
 {
   unsigned char tmp[2];
 
@@ -675,13 +637,7 @@ word_16 *var;
 }
 
 int
-#ifdef __FunctionProto__
 read_32(FILE *fp, word_32 *var)
-#else
-read_32(fp, var)
-FILE *fp;
-word_32 *var;
-#endif
 {
   unsigned char tmp[4];
 
@@ -698,13 +654,7 @@ word_32 *var;
 }
 
 int
-#ifdef __FunctionProto__
 read_u_long(FILE *fp, unsigned long *var)
-#else
-read_u_long(fp, var)
-FILE *fp;
-unsigned long*var;
-#endif
 {
   unsigned char tmp[4];
 
@@ -721,12 +671,7 @@ unsigned long*var;
 }
 
 int
-#ifdef __FunctionProto__
 read_version_0_3_0_file(FILE *fp)
-#else
-read_version_0_3_0_file(fp)
-FILE *fp;
-#endif
 {
   int i;
 
@@ -838,12 +783,7 @@ FILE *fp;
 }
 
 int
-#ifdef __FunctionProto__
 read_version_0_4_0_file(FILE *fp)
-#else
-read_version_0_4_0_file(fp)
-FILE *fp;
-#endif
 {
   int i;
 
@@ -956,14 +896,7 @@ FILE *fp;
 }
 
 int
-#ifdef __FunctionProto__
 read_mem_file(char *name, word_4 *mem, int size)
-#else
-read_mem_file(name, mem, size)
-char *name;
-word_4 *mem;
-int size;
-#endif
 {
   struct stat st;
   FILE *fp;
@@ -1059,12 +992,7 @@ int size;
 
 // Return: 1=success 0=failure
 int
-#ifdef __FunctionProto__
 read_rom(const char *fname)
-#else
-read_rom(fname)
-const char *fname;
-#endif
 {
   int ram_size;
 
@@ -1102,13 +1030,7 @@ const char *fname;
 }
 
 void
-#ifdef __FunctionProto__
 get_home_directory(char *path, const char *home)
-#else
-get_home_directory(path, home)
-char *path;
-const char *home;
-#endif
 {
   char          *p;
   struct passwd *pwd;
@@ -1154,12 +1076,7 @@ const char *home;
 // -4: can't open ram
 // -5: can't parse ram
 int
-#ifdef __FunctionProto__
 read_files(const char *home)
-#else
-read_files(home)
-const char *home;
-#endif
 {
   char           path[1024];
   char           fnam[1024];
@@ -1430,13 +1347,7 @@ const char *home;
 }
 
 int
-#ifdef __FunctionProto__
 write_8(FILE *fp, word_8 *var)
-#else
-write_8(fp, var)
-FILE *fp;
-word_8 *var;
-#endif
 {
   unsigned char tmp;
 
@@ -1450,13 +1361,7 @@ word_8 *var;
 }
 
 int
-#ifdef __FunctionProto__
 write_char(FILE *fp, char *var)
-#else
-write_char(fp, var)
-FILE *fp;
-char *var;
-#endif
 {
   char tmp;
 
@@ -1470,13 +1375,7 @@ char *var;
 }
 
 int
-#ifdef __FunctionProto__
 write_16(FILE *fp, word_16 *var)
-#else
-write_16(fp, var)
-FILE *fp;
-word_16 *var;
-#endif
 {
   unsigned char tmp[2];
 
@@ -1491,13 +1390,7 @@ word_16 *var;
 }
 
 int
-#ifdef __FunctionProto__
 write_32(FILE *fp, word_32 *var)
-#else
-write_32(fp, var)
-FILE *fp;
-word_32 *var;
-#endif
 {
   unsigned char tmp[4];
 
@@ -1514,13 +1407,7 @@ word_32 *var;
 }
 
 int
-#ifdef __FunctionProto__
 write_u_long(FILE *fp, unsigned long *var)
-#else
-write_u_long(fp, var)
-FILE *fp;
-unsigned long*var;
-#endif
 {
   unsigned char tmp[4];
 
@@ -1537,14 +1424,7 @@ unsigned long*var;
 }
 
 int
-#ifdef __FunctionProto__
 write_mem_file(char *name, word_4 *mem, int size)
-#else
-write_mem_file(name, mem, size)
-char *name;
-word_4 *mem;
-int size;
-#endif
 {
   FILE *fp;
   word_8 *tmp_mem;
@@ -1603,12 +1483,7 @@ int size;
 
 
 int
-#ifdef __FunctionProto__
 write_files(const char *home)
-#else
-write_files(home)
-const char *home;
-#endif
 {
   char path[1024];
   char fnam[1024];
@@ -1789,11 +1664,7 @@ const char *home;
 // Return: 0=success, -1=error
 
 int 
-#ifdef __FunctionProto__
 init_emulator(void)
-#else
-init_emulator()
-#endif
 {
 	
   if (!initialize)				// not do a complete initialization
@@ -1813,22 +1684,14 @@ init_emulator()
 }
 
 void
-#ifdef __FunctionProto__
 init_active_stuff(void)
-#else
-init_active_stuff()
-#endif
 {
   serial_init();
   init_display();
 }
 
 int
-#ifdef __FunctionProto__
 exit_emulator(void)
-#else
-exit_emulator()
-#endif
 {
   write_files(homeDirectory);
   return 1;
@@ -1842,24 +1705,14 @@ exit_emulator()
 
 /* Load just the ROM image at `path` into the active instance. */
 int
-#ifdef __FunctionProto__
 hp48_load_rom(const char *path)
-#else
-hp48_load_rom(path)
-const char *path;
-#endif
 {
   return read_rom_file((char *)path, &saturn.rom, (int *)&rom_size) ? 0 : -1;
 }
 
 /* Fresh boot: initialise CPU state, load the ROM at `path`, zero RAM. */
 int
-#ifdef __FunctionProto__
 hp48_init_from_rom(const char *path)
-#else
-hp48_init_from_rom(path)
-const char *path;
-#endif
 {
   init_saturn();
   return read_rom(path) ? 0 : -1;
@@ -1867,24 +1720,14 @@ const char *path;
 
 /* Load a saved calculator (rom/hp48/ram/port1/port2) from directory `dir`. */
 int
-#ifdef __FunctionProto__
 hp48_load_state(const char *dir)
-#else
-hp48_load_state(dir)
-const char *dir;
-#endif
 {
   return read_files(dir);
 }
 
 /* Save the active instance's state (hp48/ram/port1/port2) to `dir`. */
 int
-#ifdef __FunctionProto__
 hp48_save_state(const char *dir)
-#else
-hp48_save_state(dir)
-const char *dir;
-#endif
 {
   return write_files(dir) ? 0 : -1;
 }

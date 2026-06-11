@@ -641,12 +641,7 @@ sdltohpkeymap_t sdltohpkeymap[] = {
 
 
 void
-#ifdef __FunctionProto__
 adjust_contrast(int contrast)
-#else
-adjust_contrast(contrast)
-int contrast;
-#endif
 {
 	SDLCreateColors();
 	SDLCreateAnnunc();
@@ -658,13 +653,7 @@ int contrast;
 
 
 int
-#ifdef __FunctionProto__
 SmallTextWidth(const char *string, unsigned int length)
-#else
-SmallTextWidth(string, length)
-const char *string;
-unsigned int length;
-#endif
 {
   int i, w;
 
@@ -793,13 +782,7 @@ void SDLCreateHP()
 }
 
 void
-#ifdef __FunctionProto__
 ShowConnections(char *wire, char *ir)
-#else
-ShowConnections(wire, ir)
-char *wire;
-char *ir;
-#endif
 {
 	printf("ShowConnections: Not Implemented\n");
 	/*
@@ -854,12 +837,7 @@ char *ir;
 }
 
 int
-#ifdef __FunctionProto__
 button_pressed(int b)
-#else
-button_pressed(b)
-int     b;
-#endif
 {
 	if(buttons[b].pressed == 1)		// Check not already pressed (may be important: avoids a useless do_kbd_int)
 		return 0;
@@ -874,12 +852,7 @@ int     b;
 }
 
 int
-#ifdef __FunctionProto__
 button_released(int b)
-#else
-button_released(b)
-int     b;
-#endif
 {
 	if(buttons[b].pressed == 0)		// Check not already released (not critical)
 		return 0;
@@ -895,11 +868,7 @@ int     b;
 
 static
 int
-#ifdef __FunctionProto__
 button_release_all(void)
-#else
-button_release_all()
-#endif
 {
   int b;
 
@@ -914,11 +883,7 @@ button_release_all()
 
 
 void
-#ifdef __FunctionProto__
 DrawDisp(void)
-#else
-DrawDisp()
-#endif
 {
 	redraw_display();
 	redraw_annunc();
@@ -927,12 +892,7 @@ DrawDisp()
 
 
 void
-#ifdef __FunctionProto__
 exit_x48(int tell_x11)
-#else
-exit_x48(tell_x11)
-int tell_x11;
-#endif
 {
   exit_emulator();
   //if (tell_x11)

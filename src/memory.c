@@ -127,25 +127,14 @@ long nibble_masks[16] = {
  * members (see hp48_state.h). */
 
 static inline int
-#ifdef __FunctionProto__
 calc_crc(int nib)
-#else
-calc_crc(nib)
-int nib;
-#endif
 {
   saturn.crc = (saturn.crc >> 4) ^ (((saturn.crc ^ nib) & 0xf) * 0x1081);
   return nib;
 }
 
 void
-#ifdef __FunctionProto__
 write_dev_mem(long addr, int val)
-#else
-write_dev_mem(addr, val)
-long addr;
-int val;
-#endif
 {
   static int old_line_offset = -1;
 
@@ -429,12 +418,7 @@ int val;
 }
 
 int
-#ifdef __FunctionProto__
 read_dev_mem(long addr)
-#else
-read_dev_mem(addr)
-long addr;
-#endif
 {
   switch ((int)addr) {
     case 0x100:						/* DISPLAY IO */
@@ -553,13 +537,7 @@ long addr;
 }
 
 void
-#ifdef __FunctionProto__
 write_nibble_sx(long addr, int val)
-#else
-write_nibble_sx(addr, val)
-long addr;
-int val;
-#endif
 {
   addr &= 0xfffff;
   val &= 0x0f;
@@ -683,13 +661,7 @@ int val;
 }
 
 void
-#ifdef __FunctionProto__
 write_nibble_gx(long addr, int val)
-#else
-write_nibble_gx(addr, val)
-long addr;
-int val;
-#endif
 {
   addr &= 0xfffff;
   val &= 0x0f;
@@ -952,12 +924,7 @@ int val;
 }
 
 int
-#ifdef __FunctionProto__
 read_nibble_sx(long addr)
-#else
-read_nibble_sx(addr)
-long addr;
-#endif
 {
   addr &= 0xfffff;
   switch ((int)(addr >> 16) & 0x0f) {
@@ -1022,12 +989,7 @@ long addr;
 }
 
 int
-#ifdef __FunctionProto__
 read_nibble_gx(long addr)
-#else
-read_nibble_gx(addr)
-long addr;
-#endif
 {
   addr &= 0xfffff;
   switch ((int)(addr >> 16) & 0x0f)
@@ -1214,12 +1176,7 @@ long addr;
 }
 
 int
-#ifdef __FunctionProto__
 read_nibble_crc_sx(long addr)
-#else
-read_nibble_crc_sx(addr)
-long addr;
-#endif
 {
   addr &= 0xfffff;
   switch ((int)(addr >> 16) & 0x0f) {
@@ -1284,12 +1241,7 @@ long addr;
 }
 
 int
-#ifdef __FunctionProto__
 read_nibble_crc_gx(long addr)
-#else
-read_nibble_crc_gx(addr)
-long addr;
-#endif
 {
   addr &= 0xfffff;
   switch ((int)(addr >> 16) & 0x0f)
@@ -1476,13 +1428,7 @@ long addr;
 }
 
 long
-#ifdef __FunctionProto__
 read_nibbles(long addr, int len)
-#else
-read_nibbles(addr, len)
-long addr;
-int len;
-#endif
 {
   long val = 0;
 
@@ -1494,14 +1440,7 @@ int len;
 }
 
 void
-#ifdef __FunctionProto__
 write_nibbles(long addr, long val, int len)
-#else
-write_nibbles(addr, val, len)
-long addr;
-long val;
-int len;
-#endif
 {
   while (len-- > 0) {
     write_nibble(addr++, val);
@@ -1510,11 +1449,7 @@ int len;
 }
 
 void
-#ifdef __FunctionProto__
 dev_memory_init(void)
-#else
-dev_memory_init()
-#endif
 {
   if (opt_gx)
     {

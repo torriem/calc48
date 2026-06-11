@@ -75,12 +75,7 @@ static int end_fields[] = {
 };
 
 static inline int
-#ifdef __FunctionProto__
 get_start(int code)
-#else
-get_start(code)
-int code;
-#endif
 {
   int s;
 
@@ -91,12 +86,7 @@ int code;
 }
 
 static inline int
-#ifdef __FunctionProto__
 get_end(int code)
-#else
-get_end(code)
-int code;
-#endif
 {
   int e;
 
@@ -107,16 +97,8 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 add_register(unsigned char *res, unsigned char *r1,
              unsigned char *r2, int code)
-#else
-add_register(res, r1, r2, code)
-unsigned char *res;
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int t, c, i, s, e;
 
@@ -140,12 +122,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 add_p_plus_one(unsigned char *r)
-#else
-add_p_plus_one(r)
-unsigned char *r;
-#endif
 {
   int t, c, i, s, e;
 
@@ -169,16 +146,8 @@ unsigned char *r;
 }
 
 void
-#ifdef __FunctionProto__
 sub_register(unsigned char *res, unsigned char *r1,
              unsigned char *r2, int code)
-#else
-sub_register(res, r1, r2, code)
-unsigned char *res;
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int t, c, i, s, e;
 
@@ -202,13 +171,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 complement_2_register(unsigned char *r, int code)
-#else
-complement_2_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int t, c, carry, i, s, e;
 
@@ -234,13 +197,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 complement_1_register(unsigned char *r, int code)
-#else
-complement_1_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int t, i, s, e;
 
@@ -254,13 +211,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 inc_register(unsigned char *r, int code)
-#else
-inc_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int t, c, i, s, e;
 
@@ -285,14 +236,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 add_register_constant(unsigned char *r, int code, int val)
-#else
-add_register_constant(r, code, val)
-unsigned char *r;
-int code;
-int val;
-#endif
 {
   int t, c, i, s, e;
 
@@ -317,13 +261,7 @@ int val;
 }
 
 void
-#ifdef __FunctionProto__
 dec_register(unsigned char *r, int code)
-#else
-dec_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int t, c, i, s, e;
 
@@ -348,14 +286,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 sub_register_constant(unsigned char *r, int code, int val)
-#else
-sub_register_constant(r, code, val)
-unsigned char *r;
-int code;
-int val;
-#endif
 {
   int t, c, i, s, e;
 
@@ -380,13 +311,7 @@ int val;
 }
 
 void
-#ifdef __FunctionProto__
 zero_register(unsigned char *r, int code)
-#else
-zero_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -397,16 +322,8 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 or_register(unsigned char *res, unsigned char *r1,
             unsigned char *r2, int code)
-#else
-or_register(res, r1, r2, code)
-unsigned char *res;
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -418,16 +335,8 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 and_register(unsigned char *res, unsigned char *r1,
              unsigned char *r2, int code)
-#else
-and_register(res, r1, r2, code)
-unsigned char *res;
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -439,14 +348,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 copy_register(unsigned char *to, unsigned char *from, int code)
-#else
-copy_register(to, from, code)
-unsigned char *to;
-unsigned char *from;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -457,14 +359,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 exchange_register(unsigned char *r1, unsigned char *r2, int code)
-#else
-exchange_register(r1, r2, code)
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int t, i, s, e;
 
@@ -478,14 +373,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 exchange_reg(unsigned char *r, word_20 *d, int code)
-#else
-exchange_reg(r, d, code)
-unsigned char *r;
-word_20 *d;
-int code;
-#endif
 {
   int t, i, s, e;
 
@@ -500,13 +388,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 shift_left_register(unsigned char *r, int code)
-#else
-shift_left_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -519,13 +401,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 shift_left_circ_register(unsigned char *r, int code)
-#else
-shift_left_circ_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int t, i, s, e;
 
@@ -539,13 +415,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 shift_right_register(unsigned char *r, int code)
-#else
-shift_right_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int i, s, e;
 
@@ -560,13 +430,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 shift_right_circ_register(unsigned char *r, int code)
-#else
-shift_right_circ_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int t, i, s, e;
 
@@ -582,13 +446,7 @@ int code;
 }
 
 void
-#ifdef __FunctionProto__
 shift_right_bit_register(unsigned char *r, int code)
-#else
-shift_right_bit_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int t, i, s, e, sb;
 
@@ -605,13 +463,7 @@ int code;
 }
  
 int
-#ifdef __FunctionProto__
 is_zero_register(unsigned char *r, int code)
-#else
-is_zero_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int z, i, s, e;
 
@@ -627,13 +479,7 @@ int code;
 }
 
 int
-#ifdef __FunctionProto__
 is_not_zero_register(unsigned char *r, int code)
-#else
-is_not_zero_register(r, code)
-unsigned char *r;
-int code;
-#endif
 {
   int z, i, s, e;
 
@@ -649,14 +495,7 @@ int code;
 }
 
 int
-#ifdef __FunctionProto__
 is_equal_register(unsigned char *r1, unsigned char *r2, int code)
-#else
-is_equal_register(r1, r2, code)
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int z, i, s, e;
 
@@ -672,14 +511,7 @@ int code;
 }
 
 int
-#ifdef __FunctionProto__
 is_not_equal_register(unsigned char *r1, unsigned char *r2, int code)
-#else
-is_not_equal_register(r1, r2, code)
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int z, i, s, e;
 
@@ -695,14 +527,7 @@ int code;
 }
 
 int
-#ifdef __FunctionProto__
 is_less_register(unsigned char *r1, unsigned char *r2, int code)
-#else
-is_less_register(r1, r2, code)
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int z, i, s, e;
 
@@ -723,14 +548,7 @@ int code;
 }
 
 int
-#ifdef __FunctionProto__
 is_less_or_equal_register(unsigned char *r1, unsigned char *r2, int code)
-#else
-is_less_or_equal_register(r1, r2, code)
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int z, i, s, e;
 
@@ -751,14 +569,7 @@ int code;
 }
 
 int
-#ifdef __FunctionProto__
 is_greater_register(unsigned char *r1, unsigned char *r2, int code)
-#else
-is_greater_register(r1, r2, code)
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int z, i, s, e;
 
@@ -779,14 +590,7 @@ int code;
 }
 
 int
-#ifdef __FunctionProto__
 is_greater_or_equal_register(unsigned char *r1, unsigned char *r2, int code)
-#else
-is_greater_or_equal_register(r1, r2, code)
-unsigned char *r1;
-unsigned char *r2;
-int code;
-#endif
 {
   int z, i, s, e;
 

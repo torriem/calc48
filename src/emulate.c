@@ -89,11 +89,7 @@ static word_20 jumpmasks[] = {
 };
 
 int
-#ifdef __FunctionProto__
 decode_group_80(void)
-#else
-decode_group_80()
-#endif
 {
   int t, op3, op4, op5, op6;
   unsigned char *REG;
@@ -267,11 +263,7 @@ decode_group_80()
 }
 
 int
-#ifdef __FunctionProto__
 decode_group_1(void)
-#else
-decode_group_1()
-#endif
 {
   int op, op2, op3, op4;
 
@@ -670,12 +662,7 @@ decode_group_1()
 }
 
 static inline int
-#ifdef __FunctionProto__
 decode_8_thru_f(int op1)
-#else
-decode_8_thru_f(op1)
-int op1;
-#endif
 {
   int op2, op3, op4, op5, op6;
 
@@ -1940,11 +1927,7 @@ int op1;
 }
 
 int
-#ifdef __FunctionProto__
 step_instruction(void)
-#else
-step_instruction()
-#endif
 {
   int op0, op1, op2, op3;
   int stop = 0;
@@ -2189,11 +2172,7 @@ step_instruction()
 }
 
 void
-#ifdef __FunctionProto__
 schedule(void)
-#else
-schedule()
-#endif
 {
   t1_t2_ticks		ticks;
   unsigned long		steps;
@@ -2394,11 +2373,7 @@ schedule()
  *  after the ROM/state is loaded, before the first hp48_run_slice().
  */
 void
-#ifdef __FunctionProto__
 hp48_start(void)
-#else
-hp48_start()
-#endif
 {
   reset_timer(T1_TIMER);
   reset_timer(RUN_TIMER);
@@ -2428,12 +2403,7 @@ hp48_start()
  *  regardless of how often this is called.
  */
 int
-#ifdef __FunctionProto__
 hp48_run_slice(int budget_us)
-#else
-hp48_run_slice(budget_us)
-int budget_us;
-#endif
 {
   struct timeval t0, now;
 #ifndef SOLARIS
@@ -2490,11 +2460,7 @@ int budget_us;
  *  Mirrors one iteration of hp48_run_slice's loop without the time budget.
  */
 int
-#ifdef __FunctionProto__
 hp48_step(void)
-#else
-hp48_step()
-#endif
 {
   int rv = step_instruction();
 

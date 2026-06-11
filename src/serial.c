@@ -97,11 +97,7 @@ static char *ir_name = (char *)0;
 /* #define DEBUG_SERIAL */
 
 void
-#ifdef __FunctionProto__
 update_connection_display(void)
-#else
-update_connection_display()
-#endif
 {
   if (wire_fd == -1)
     {
@@ -118,11 +114,7 @@ update_connection_display()
 }
 
 int
-#ifdef __FunctionProto__
 serial_init(void)
-#else
-serial_init()
-#endif
 {
   char *p;
   int   c;
@@ -346,12 +338,7 @@ serial_init()
 }
 
 void
-#ifdef __FunctionProto__
 serial_baud(int baud)
-#else
-serial_baud(baud)
-int baud;
-#endif
 {
   int error = 0;
   struct termios ttybuf;
@@ -566,11 +553,7 @@ int baud;
 
 
 void
-#ifdef __FunctionProto__
 transmit_char(void)
-#else
-transmit_char()
-#endif
 {
 #ifdef DEBUG_SERIALx
   fprintf(stderr, "XMT %s\n", (saturn.ir_ctrl & 0x04) ? "IR" : "wire");
@@ -638,11 +621,7 @@ transmit_char()
 #define NR_BUFFER 256
 
 void
-#ifdef __FunctionProto__
 receive_char()
-#else
-receive_char()
-#endif
 {
   struct timeval tout;
   fd_set rfds;

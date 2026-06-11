@@ -35,11 +35,7 @@ char errbuf[1024] = { 0, };
 char fixbuf[1024] = { 0, };
 
 void
-#ifdef __FunctionProto__
 fatal_exit(void)
-#else
-fatal_exit()
-#endif
 {
   if (quiet)
     exit (1);

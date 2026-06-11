@@ -35,8 +35,8 @@
 
 /* opt_gx, rom_size are now hp48_t members (see hp48_state.h) */
 
-extern int read_rom_file __ProtoType__((char *name,
+extern int read_rom_file (char *name,
                                         unsigned char **mem,
-                                        int *size));
+                                        int *size);
 
 #endif /* !_ROMIO_H */

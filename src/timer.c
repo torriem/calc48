@@ -65,10 +65,10 @@
 /* #define DEBUG_TIMER_ADJUST 1 */
 
 #ifdef SOLARIS
-extern int gettimeofday __ProtoType__((struct timeval *tp));
+extern int gettimeofday (struct timeval *tp);
 #endif
 #ifdef SUNOS
-extern int gettimeofday __ProtoType__((struct timeval *, struct timezone *));
+extern int gettimeofday (struct timeval *, struct timezone *);
 #endif
 
 typedef struct x48_timer_t {
@@ -118,11 +118,7 @@ word_64 ticks_10_min = 0x00b40000L;
  *
  */
 void
-#ifdef __FunctionProto__
 set_accesstime(void)
-#else
-set_accesstime()
-#endif
 {
   struct timeval  tv;
 #ifndef SOLARIS
@@ -227,12 +223,7 @@ printf("***set_accesstime***\n");
 }
 
 void
-#ifdef __FunctionProto__
 start_timer(int timer)
-#else
-start_timer(timer)
-int timer;
-#endif
 {
   struct timeval  tv;
 #ifndef SOLARIS
@@ -265,12 +256,7 @@ int timer;
 }
 
 void
-#ifdef __FunctionProto__
 restart_timer(int timer)
-#else
-restart_timer(timer)
-int timer;
-#endif
 {
   struct timeval  tv;
 #ifndef SOLARIS
@@ -307,12 +293,7 @@ int timer;
 }
 
 void
-#ifdef __FunctionProto__
 stop_timer(int timer)
-#else
-stop_timer(timer)
-int timer;
-#endif
 {
   struct timeval  tv;
 #ifndef SOLARIS
@@ -352,12 +333,7 @@ int timer;
 }
 
 void
-#ifdef __FunctionProto__
 reset_timer(int timer)
-#else
-reset_timer(timer)
-int timer;
-#endif
 {
   if (timer > NR_TIMERS)
     return;
@@ -373,12 +349,7 @@ int timer;
 static word_64 zero = 0;
 
 word_64
-#ifdef __FunctionProto__
 get_timer(int timer)
-#else
-get_timer(timer)
-int timer;
-#endif
 {
   struct timeval  tv;
 #ifndef SOLARIS
@@ -424,11 +395,7 @@ int timer;
  */
 
 t1_t2_ticks
-#ifdef __FunctionProto__
 get_t1_t2(void)
-#else
-get_t1_t2()
-#endif
 {
   struct timeval  tv;
 #ifndef SOLARIS

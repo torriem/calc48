@@ -62,6 +62,6 @@ extern char   *progname;
 extern char   *res_name;
 extern char   *res_class;
 
-void get_resources();
+void get_resources(void);
 
 #endif /* !_RESOURCES_H */

@@ -40,14 +40,7 @@
 unsigned char *mem;
 
 int
-#ifdef __FunctionProto__
 write_mem_file(char *name, unsigned char *mem, int size)
-#else
-write_mem_file(name, mem, size)
-char *name;
-unsigned char *mem;
-int size;
-#endif
 {
   FILE *fp;
 
@@ -69,13 +62,7 @@ int size;
 }
 
 int
-#ifdef __FunctionProto__
 main(int argc, char **argv)
-#else
-main(argc, argv)
-int argc;
-char **argv;
-#endif
 {
   long size;
   char *name;

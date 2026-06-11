@@ -56,7 +56,7 @@ struct objfunc {
   char    *name;
   short    length;
   word_20  prolog;
-  char	  *(*func) __ProtoType__((word_20 *addr, char *string));
+  char	  *(*func) (word_20 *addr, char *string);
 } objects[] = {
   { "System Binary",	0,	DOBINT,		dec_bin_int },
   { "Real",		0,	DOREAL,		dec_real },
@@ -95,13 +95,7 @@ struct objfunc {
 };
 
 char *
-#ifdef __FunctionProto__
 skip_ob(word_20 *addr, char *string)
-#else
-skip_ob(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20         size, type;
   char           *p = string;
@@ -128,12 +122,7 @@ char    *string;
 }
 
 long
-#ifdef __FunctionProto__
 hxs2real(long hxs)
-#else
-hxs2real(hxs)
-long hxs;
-#endif
 {
   int n = 0, c = 1;
 
@@ -147,13 +136,7 @@ long hxs;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_bin_int(word_20 *addr, char *string)
-#else
-dec_bin_int(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   char    *p = string;
   word_20  n = 0;
@@ -166,15 +149,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 real_number(word_20 *addr, char *string, int ml, int xl)
-#else
-real_number(addr, string, ml, xl)
-word_20 *addr;
-char    *string;
-int      ml;
-int      xl;
-#endif
 {
   hp_real r;
   long    re, xs;
@@ -274,37 +249,19 @@ int      xl;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_real(word_20 *addr, char *string)
-#else
-dec_real(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   return real_number(addr, string, 11, 3);
 }
 
 char *
-#ifdef __FunctionProto__
 dec_long_real(word_20 *addr, char *string)
-#else
-dec_long_real(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   return real_number(addr, string, 14, 5);
 }
 
 char *
-#ifdef __FunctionProto__
 dec_complex(word_20 *addr, char *string)
-#else
-dec_complex(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   char *p = string;
 
@@ -318,13 +275,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_long_complex(word_20 *addr, char *string)
-#else
-dec_long_complex(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   char *p = string;
 
@@ -338,13 +289,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_string(word_20 *addr, char *string)
-#else
-dec_string(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20        len;
   unsigned char  c;
@@ -387,13 +332,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_hex_string(word_20 *addr, char *string)
-#else
-dec_hex_string(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   int   len, lead, i, n;
   static char hex[] = "0123456789ABCDEF";
@@ -454,13 +393,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_list(word_20 *addr, char *string)
-#else
-dec_list(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20  semi;
   char    *p = string;
@@ -487,13 +420,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_symb(word_20 *addr, char *string)
-#else
-dec_symb(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20  semi;
   char    *p = string;
@@ -518,13 +445,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_unit(word_20 *addr, char *string)
-#else
-dec_unit(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20  semi;
   char    *p = string;
@@ -545,13 +466,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_unit_op(word_20 *addr, char *string)
-#else
-dec_unit_op(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20 op;
   char *p = string;
@@ -582,13 +497,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_library(word_20 *addr, char *string)
-#else
-dec_library(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20        libsize, libidsize;
 /*
@@ -625,13 +534,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_library_data(word_20 *addr, char *string)
-#else
-dec_library_data(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20  size;
   char    *p = string;
@@ -648,13 +551,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_acptr(word_20 *addr, char *string)
-#else
-dec_acptr(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20  size;
   char    *p = string;
@@ -686,13 +583,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_prog(word_20 *addr, char *string)
-#else
-dec_prog(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20  semi;
   char    *p = string;
@@ -713,13 +604,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_code(word_20 *addr, char *string)
-#else
-dec_code(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   char    *p = string;
   word_20  n, len;
@@ -742,13 +627,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_local_ident(word_20 *addr, char *string)
-#else
-dec_local_ident(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   int           len, i, n;
   char         *p = string;
@@ -786,13 +665,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_global_ident(word_20 *addr, char *string)
-#else
-dec_global_ident(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   int           len, i, n;
   char         *p = string;
@@ -830,14 +703,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 xlib_name(int lib, int command, char *string)
-#else
-xlib_name(lib, command, string)
-int   lib;
-int   command;
-char *string;
-#endif
 {
   int           n, len;
   int		i, lib_n = 0;
@@ -1016,13 +882,7 @@ char *string;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_xlib_name(word_20 *addr, char *string)
-#else
-dec_xlib_name(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   int           lib, command;
 
@@ -1035,14 +895,7 @@ char    *string;
 }
 
 char *
-#ifdef __FunctionProto__
 any_array(word_20 *addr, char *string, short lnk_flag)
-#else
-any_array(addr, string, lnk_flag)
-word_20 *addr;
-char    *string;
-short    lnk_flag;
-#endif
 {
   word_20  len, type, dim;
   word_20 *dim_lens, *dims;
@@ -1140,37 +993,19 @@ short    lnk_flag;
 }
 
 char *
-#ifdef __FunctionProto__
 dec_array(word_20 *addr, char *string)
-#else
-dec_array(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   return any_array(addr, string, 0);
 }
 
 char *
-#ifdef __FunctionProto__
 dec_lnk_array(word_20 *addr, char *string)
-#else
-dec_lnk_array(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   return any_array(addr, string, 1);
 }
 
 char *
-#ifdef __FunctionProto__
 dec_char(word_20 *addr, char *string)
-#else
-dec_char(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   char *p = string;
   unsigned char c;
@@ -1193,13 +1028,7 @@ char    *string;
 }
 
 short
-#ifdef __FunctionProto__
 check_xlib(word_20 addr, char *string)
-#else
-check_xlib(addr, string)
-word_20  addr;
-char    *string;
-#endif
 {
   int           n, lib, command;
   word_20	romptab;
@@ -1354,13 +1183,7 @@ fflush(stderr);
 
 
 char *
-#ifdef __FunctionProto__
 dec_rpl_obj(word_20 *addr, char *string)
-#else
-dec_rpl_obj(addr, string)
-word_20 *addr;
-char    *string;
-#endif
 {
   word_20	  prolog = 0;
   word_20	  prolog_2;
@@ -1406,14 +1229,7 @@ char    *string;
 }
 
 void
-#ifdef __FunctionProto__
 decode_rpl_obj_2(word_20 addr, char *typ, char *dat)
-#else
-decode_rpl_obj_2(addr, typ, dat)
-word_20  addr;
-char    *typ;
-char    *dat;
-#endif
 {
   word_20	  prolog = 0;
   int             len;
@@ -1478,13 +1294,7 @@ char    *dat;
 }
 
 char *
-#ifdef __FunctionProto__
 decode_rpl_obj(word_20 addr, char *buf)
-#else
-decode_rpl_obj(addr, buf)
-word_20  addr;
-char    *buf;
-#endif
 {
   word_20	  prolog = 0;
   int             len;

@@ -90,11 +90,7 @@
 
 
 void
-#ifdef __FunctionProto__
 init_display(void)
-#else
-init_display()
-#endif
 {
   cpu->display.on = (int)(saturn.disp_io & 0x8) >> 3;
 
@@ -131,14 +127,7 @@ init_display()
 }
 
 static inline void
-#ifdef __FunctionProto__
 draw_nibble(int c, int r, int val)
-#else
-draw_nibble(c, r, val)
-int c;
-int r;
-int val;
-#endif
 {
   int x, y;
   
@@ -159,13 +148,7 @@ int val;
 }
 
 static inline void
-#ifdef __FunctionProto__
 draw_row(long addr, int row)
-#else
-draw_row(addr, row)
-long addr;
-int row;
-#endif
 {
   int i, v;
   int line_length;
@@ -184,11 +167,7 @@ int row;
 }
 
 void
-#ifdef __FunctionProto__
 update_display(void)
-#else
-update_display()
-#endif
 {
   int i, j;
   long addr;
@@ -239,11 +218,7 @@ update_display()
 }
 
 void
-#ifdef __FunctionProto__
 redraw_display(void)
-#else
-redraw_display()
-#endif
 {
   memset(disp_buf, 0, sizeof(disp_buf));
   memset(lcd_buffer, 0, sizeof(lcd_buffer));
@@ -251,13 +226,7 @@ redraw_display()
 }
 
 void
-#ifdef __FunctionProto__
 disp_draw_nibble(word_20 addr, word_4 val)
-#else
-disp_draw_nibble(addr, val)
-word_20 addr;
-word_4 val;
-#endif
 {
   long offset;
   int x, y;
@@ -286,13 +255,7 @@ word_4 val;
 }
 
 void
-#ifdef __FunctionProto__
 menu_draw_nibble(word_20 addr, word_4 val)
-#else
-menu_draw_nibble(addr, val)
-word_20 addr;
-word_4 val;
-#endif
 {
   long offset;
   int x, y;
@@ -309,11 +272,7 @@ word_4 val;
 
 
 void
-#ifdef __FunctionProto__
 draw_annunc(void)
-#else
-draw_annunc()
-#endif
 {
   int val;
 
@@ -329,11 +288,7 @@ draw_annunc()
 }
 
 void
-#ifdef __FunctionProto__
 redraw_annunc(void)
-#else
-redraw_annunc()
-#endif
 {
   last_annunc_state = -1;
   draw_annunc();
@@ -348,11 +303,7 @@ redraw_annunc()
  *  the SDL front end does the equivalent via SDLCreateHP()/init_active_stuff().
  */
 void
-#ifdef __FunctionProto__
 hp48_display_init(void)
-#else
-hp48_display_init()
-#endif
 {
   init_display();
   cpu->disp.mapped = 1;
@@ -368,13 +319,7 @@ hp48_display_init()
  *  ~131 pixels of each row.  *rows / *row_stride may be NULL.
  */
 const unsigned char *
-#ifdef __FunctionProto__
 hp48_get_lcd(int *rows, int *row_stride)
-#else
-hp48_get_lcd(rows, row_stride)
-int *rows;
-int *row_stride;
-#endif
 {
   if (rows)
     *rows = DISP_ROWS;
