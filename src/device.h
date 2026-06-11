@@ -115,7 +115,7 @@ typedef struct device_t {
 
 } device_t;
 
-extern device_t device;
+/* `device` is now an hp48_t member (see hp48_state.h) */
 extern void	check_devices      __ProtoType__((void));
 #if 0
 extern void	check_out_register __ProtoType__((void));

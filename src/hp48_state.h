@@ -19,7 +19,8 @@
 #ifndef _HP48_STATE_H
 #define _HP48_STATE_H 1
 
-#include "hp48.h"   /* saturn_t, display_t and friends */
+#include "hp48.h"     /* saturn_t, display_t and friends */
+#include "device.h"   /* device_t */
 
 typedef struct hp48_t {
 
@@ -89,6 +90,9 @@ typedef struct hp48_t {
   /* --- ROM identity (romio.c) --- */
   unsigned int opt_gx;
   unsigned int rom_size;
+
+  /* --- memory-mapped I/O device registers (device.c) --- */
+  device_t device;
 
 } hp48_t;
 
@@ -175,6 +179,9 @@ extern hp48_t *cpu;
 /* ROM identity (romio.c) */
 #define opt_gx                (cpu->opt_gx)
 #define rom_size              (cpu->rom_size)
+
+/* memory-mapped I/O device registers (device.c) */
+#define device                (cpu->device)
 
 #endif /* !HP48_STATE_NO_BRIDGE */
 

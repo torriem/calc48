@@ -64,9 +64,7 @@
 #include "timer.h"
 #include "x48_sdl.h"
 
-/* device_check is an hp48_t member (hp48_state.h) */
-
-device_t device;
+/* device_check and device are now hp48_t members (see hp48_state.h) */
 
 void
 #ifdef __FunctionProto__
