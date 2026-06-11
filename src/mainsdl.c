@@ -94,8 +94,6 @@ char  *res_class;
 int    saved_argc;
 char **saved_argv;
 
-saturn_t saturn;
-
 void
 #ifdef __FunctionProto__
 signal_handler(int sig)

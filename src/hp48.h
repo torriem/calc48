@@ -282,7 +282,7 @@ extern long		schedule_event;
 extern display_t	display;
 extern void		init_display __ProtoType__((void));
 
-extern saturn_t		saturn;
+/* `saturn` is now a member of hp48_t, reached via the bridge in hp48_state.h */
 
 extern int		exit_emulator __ProtoType__((void));
 extern int		init_emulator __ProtoType__((void));
@@ -310,4 +310,8 @@ extern int              write_files __ProtoType__((void));
 
 extern void		load_addr __ProtoType__((word_20 *dat, long addr,
 						 int n));
+
+/* Per-instance state aggregation + active-context bridges (Phase 2). */
+#include "hp48_state.h"
+
 #endif /* !_HP48_H */

@@ -33,6 +33,7 @@ endif()
 # FRONTEND -> x48: the SDL client that links libhp48.
 
 set(CORE_SOURCES
+    src/context.c
     src/actions.c
     src/debugger.c
     src/device.c
