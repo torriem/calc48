@@ -918,7 +918,7 @@ do_load (argc, argv)
       memcpy (&tmp_saturn, &saturn, sizeof (saturn));
       memcpy (&tmp_device, &device, sizeof (device));
       memset (&saturn, 0, sizeof (saturn));
-      if (read_files ())
+      if (read_files (homeDirectory))
 	{
 	  printf ("Loading done.\n");
 	  enter_debugger &= ~ILLEGAL_INSTRUCTION;
@@ -1518,7 +1518,7 @@ do_save (argc, argv)
      char *argv;
 #endif
 {
-  if (write_files ())
+  if (write_files (homeDirectory))
     {
       printf ("Saving done.\n");
     }

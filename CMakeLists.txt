@@ -90,19 +90,32 @@ endif()
 # ---------------------------------------------------------------------------
 # libhp48: emulator core
 # ---------------------------------------------------------------------------
-add_library(hp48 STATIC ${CORE_SOURCES})
-
-target_include_directories(hp48 PUBLIC src)
-target_compile_definitions(hp48 PUBLIC ${PLATFORM_DEFINE})
-
-# serial.c uses grantpt/unlockpt/ptsname_r, gated behind _GNU_SOURCE on glibc.
-if(UNIX AND NOT APPLE)
-    target_compile_definitions(hp48 PRIVATE _GNU_SOURCE)
-endif()
-
 # As of Phase 3 the core has NO SDL dependency: it talks to any front end
-# through the hp48_ui_t callbacks (hp48_ui.h) and references no SDL symbols.
-# It therefore links with neither SDL nor libm, and can be built shared.
+# through the hp48_ui_t callbacks (hp48_ui.h) and references no SDL symbols, so
+# it links with neither SDL nor libm. We build it both ways:
+#   - STATIC  hp48        (libhp48.a)  -> linked by the SDL app and examples
+#   - SHARED  hp48_shared (libhp48.so) -> for FFI consumers (Python, Qt, ...)
+# Both compile the same sources with position-independent code.
+
+function(configure_hp48_core tgt)
+    target_include_directories(${tgt} PUBLIC src)
+    target_compile_definitions(${tgt} PUBLIC ${PLATFORM_DEFINE})
+    # serial.c uses grantpt/unlockpt/ptsname_r, gated behind _GNU_SOURCE on glibc.
+    if(UNIX AND NOT APPLE)
+        target_compile_definitions(${tgt} PRIVATE _GNU_SOURCE)
+    endif()
+    set_target_properties(${tgt} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endfunction()
+
+add_library(hp48 STATIC ${CORE_SOURCES})
+configure_hp48_core(hp48)
+
+add_library(hp48_shared SHARED ${CORE_SOURCES})
+configure_hp48_core(hp48_shared)
+set_target_properties(hp48_shared PROPERTIES
+    OUTPUT_NAME hp48
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR})
 
 # ---------------------------------------------------------------------------
 # x48: SDL frontend executable

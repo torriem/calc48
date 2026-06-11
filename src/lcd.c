@@ -340,6 +340,26 @@ redraw_annunc()
 }
 
 /*
+ *  Prepare the LCD for a host that pulls it (Phase 5).  A UI-less embedder has
+ *  no window to "map", so update_display() -- which bails when disp.mapped is
+ *  0 -- would never maintain the buffer.  This computes the display geometry
+ *  from the loaded Saturn registers, marks the display active, and paints the
+ *  current screen into the buffer.  Call after load_state()/init_from_rom();
+ *  the SDL front end does the equivalent via SDLCreateHP()/init_active_stuff().
+ */
+void
+#ifdef __FunctionProto__
+hp48_display_init(void)
+#else
+hp48_display_init()
+#endif
+{
+  init_display();
+  cpu->disp.mapped = 1;
+  redraw_display();
+}
+
+/*
  *  Public LCD-pull API (Phase 4).  Returns a pointer to the active instance's
  *  live LCD buffer, for hosts that read the display instead of receiving
  *  draw_nibble() pushes.  Each byte is one 4-pixel nibble (bit 0 is the

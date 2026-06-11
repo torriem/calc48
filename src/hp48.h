@@ -311,8 +311,8 @@ extern int		step_instruction __ProtoType__((void));
 extern void		schedule __ProtoType__((void));
 
 extern int              read_rom __ProtoType__((const char *fname));
-extern int              read_files __ProtoType__((void));
-extern int              write_files __ProtoType__((void));
+extern int              read_files __ProtoType__((const char *home));
+extern int              write_files __ProtoType__((const char *home));
 
 extern void		load_addr __ProtoType__((word_20 *dat, long addr,
 						 int n));
@@ -331,7 +331,14 @@ extern void    hp48_init_defaults __ProtoType__((hp48_t *h));
 extern int     hp48_step	__ProtoType__((void));
 extern void    hp48_press_key	__ProtoType__((int code));
 extern void    hp48_release_key	__ProtoType__((int code));
+extern void    hp48_display_init __ProtoType__((void));
 extern const unsigned char *hp48_get_lcd __ProtoType__((int *rows,
 							 int *row_stride));
+
+/* Persistence (Phase 5): explicit paths, active instance. 0 ok, <0 error. */
+extern int     hp48_load_rom	__ProtoType__((const char *path));
+extern int     hp48_init_from_rom __ProtoType__((const char *path));
+extern int     hp48_load_state	__ProtoType__((const char *dir));
+extern int     hp48_save_state	__ProtoType__((const char *dir));
 
 #endif /* !_HP48_H */

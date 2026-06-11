@@ -1068,7 +1068,7 @@ const char *fname;
 {
   int ram_size;
 
-  if (!read_rom_file(romFileName, &saturn.rom, (int*)&rom_size))
+  if (!read_rom_file((char *)fname, &saturn.rom, (int*)&rom_size))
     return 0;
   dev_memory_init();
 
@@ -1103,18 +1103,19 @@ const char *fname;
 
 void
 #ifdef __FunctionProto__
-get_home_directory(char *path)
+get_home_directory(char *path, const char *home)
 #else
-get_home_directory(path)
+get_home_directory(path, home)
 char *path;
+const char *home;
 #endif
 {
   char          *p;
   struct passwd *pwd;
 
-  if (homeDirectory[0] == '/')
+  if (home[0] == '/')
     {
-      strcpy(path, homeDirectory);
+      strcpy(path, home);
     }
   else
     {
@@ -1141,7 +1142,7 @@ char *path;
               strcpy(path, "/tmp");
             }
         }
-      strcat(path, homeDirectory);
+      strcat(path, home);
     }
 }
 
@@ -1154,9 +1155,10 @@ char *path;
 // -5: can't parse ram
 int
 #ifdef __FunctionProto__
-read_files(void)
+read_files(const char *home)
 #else
-read_files()
+read_files(home)
+const char *home;
 #endif
 {
   char           path[1024];
@@ -1167,7 +1169,7 @@ read_files()
   struct stat    st;
   FILE          *fp;
 
-  get_home_directory(path);
+  get_home_directory(path, home);
   strcat(path, "/");
 
   saturn.rom = (word_4 *)NULL;
@@ -1602,9 +1604,10 @@ int size;
 
 int
 #ifdef __FunctionProto__
-write_files(void)
+write_files(const char *home)
 #else
-write_files()
+write_files(home)
+const char *home;
 #endif
 {
   char path[1024];
@@ -1615,7 +1618,7 @@ write_files()
   FILE *fp;
 
   make_dir = 0;
-  get_home_directory(path);
+  get_home_directory(path, home);
 
   if (stat(path, &st) == -1)
     {
@@ -1794,7 +1797,7 @@ init_emulator()
 {
 	
   if (!initialize)				// not do a complete initialization
-    if (read_files()==0)		// read_files ok
+    if (read_files(homeDirectory)==0)		// read_files ok
       {
         if (resetOnStartup)
           saturn.PC = 0x00000;
@@ -1804,7 +1807,7 @@ init_emulator()
   init_saturn();
   if (!read_rom(romFileName))
     return -1;						// return failure
-  
+
   return 0;							// return ok;
   return -1;
 }
@@ -1827,7 +1830,62 @@ exit_emulator(void)
 exit_emulator()
 #endif
 {
-  write_files();
+  write_files(homeDirectory);
   return 1;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Public persistence API (Phase 5): explicit paths, operating on the       */
+/* active instance -- no dependency on the global homeDirectory/romFileName */
+/* resource strings.  All return 0 on success, negative on failure.         */
+/* ----------------------------------------------------------------------- */
+
+/* Load just the ROM image at `path` into the active instance. */
+int
+#ifdef __FunctionProto__
+hp48_load_rom(const char *path)
+#else
+hp48_load_rom(path)
+const char *path;
+#endif
+{
+  return read_rom_file((char *)path, &saturn.rom, (int *)&rom_size) ? 0 : -1;
+}
+
+/* Fresh boot: initialise CPU state, load the ROM at `path`, zero RAM. */
+int
+#ifdef __FunctionProto__
+hp48_init_from_rom(const char *path)
+#else
+hp48_init_from_rom(path)
+const char *path;
+#endif
+{
+  init_saturn();
+  return read_rom(path) ? 0 : -1;
+}
+
+/* Load a saved calculator (rom/hp48/ram/port1/port2) from directory `dir`. */
+int
+#ifdef __FunctionProto__
+hp48_load_state(const char *dir)
+#else
+hp48_load_state(dir)
+const char *dir;
+#endif
+{
+  return read_files(dir);
+}
+
+/* Save the active instance's state (hp48/ram/port1/port2) to `dir`. */
+int
+#ifdef __FunctionProto__
+hp48_save_state(const char *dir)
+#else
+hp48_save_state(dir)
+const char *dir;
+#endif
+{
+  return write_files(dir) ? 0 : -1;
 }
 
