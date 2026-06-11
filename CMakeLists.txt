@@ -10,7 +10,7 @@ project(x48-sdl
 # ---------------------------------------------------------------------------
 # The codebase historically compiled with g++, but it is plain C and only
 # relied on C++ for incidental reasons (inline linkage, transitive libm).
-# We build it as C now so the eventual libhp48 core has no C++ dependency.
+# We build it as C now so the libhp48 core has no C++ dependency.
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -22,10 +22,15 @@ endif()
 # ---------------------------------------------------------------------------
 # Source layout
 # ---------------------------------------------------------------------------
-# These two lists are deliberately kept separate. Today everything is linked
-# into one executable, but in Phase 1 of REFACTOR_PLAN.md the CORE list
-# becomes a standalone `libhp48` target with no SDL dependency, and the
-# FRONTEND list becomes the SDL client that links against it.
+# CORE  -> libhp48: the emulator. The end goal (Phase 3 of REFACTOR_PLAN.md)
+#          is for this to have NO SDL dependency at all. Today three core
+#          files (lcd.c, emulate.c, actions.c) still call into the SDL
+#          frontend (SDLDrawNibble/SDLDrawAnnunc/SDLGetEvent) and include
+#          x48_sdl.h, so the library is built STATIC and those symbols are
+#          resolved when the frontend executable links. The SDL include path
+#          and WITH_SDL define on the core below are TEMPORARY and removed in
+#          Phase 3 once those calls move behind a callback interface.
+# FRONTEND -> x48: the SDL client that links libhp48.
 
 set(CORE_SOURCES
     src/actions.c
@@ -61,43 +66,56 @@ find_package(SDL REQUIRED)   # SDL 1.2 (FindSDL provides SDL::SDL)
 # transitively; in C we must request it explicitly.
 find_library(MATH_LIBRARY m)
 
+# Normalize SDL into a single INTERFACE target regardless of CMake version
+# (newer FindSDL provides SDL::SDL; older only sets the classic variables).
+add_library(sdl_compat INTERFACE)
+if(TARGET SDL::SDL)
+    target_link_libraries(sdl_compat INTERFACE SDL::SDL)
+else()
+    target_include_directories(sdl_compat INTERFACE ${SDL_INCLUDE_DIRS})
+    target_link_libraries(sdl_compat INTERFACE ${SDL_LIBRARIES})
+endif()
+
+# Platform define mirroring the historical Makefile (-DPLATFORM_LINUX), shared
+# by both targets.
+if(WIN32)
+    set(PLATFORM_DEFINE PLATFORM_WIN32)
+elseif(APPLE)
+    set(PLATFORM_DEFINE PLATFORM_DARWIN)
+else()
+    set(PLATFORM_DEFINE PLATFORM_LINUX)
+endif()
+
 # ---------------------------------------------------------------------------
-# Executable (single target for now; split in Phase 1)
+# libhp48: emulator core
 # ---------------------------------------------------------------------------
-add_executable(x48 ${CORE_SOURCES} ${FRONTEND_SOURCES})
+add_library(hp48 STATIC ${CORE_SOURCES})
+
+target_include_directories(hp48 PUBLIC src)
+target_compile_definitions(hp48 PUBLIC ${PLATFORM_DEFINE})
+
+# serial.c uses grantpt/unlockpt/ptsname_r, gated behind _GNU_SOURCE on glibc.
+if(UNIX AND NOT APPLE)
+    target_compile_definitions(hp48 PRIVATE _GNU_SOURCE)
+endif()
+
+# TEMPORARY (removed in Phase 3): the core still calls into the SDL frontend
+# and includes x48_sdl.h, so it needs WITH_SDL and the SDL headers to compile.
+target_compile_definitions(hp48 PRIVATE WITH_SDL)
+target_link_libraries(hp48 PRIVATE sdl_compat)
+
+# ---------------------------------------------------------------------------
+# x48: SDL frontend executable
+# ---------------------------------------------------------------------------
+add_executable(x48 ${FRONTEND_SOURCES})
 
 target_include_directories(x48 PRIVATE src)
-
 target_compile_definitions(x48 PRIVATE WITH_SDL)
 
-# Platform define mirrors the historical Makefile (-DPLATFORM_LINUX).
-if(WIN32)
-    target_compile_definitions(x48 PRIVATE PLATFORM_WIN32)
-elseif(APPLE)
-    target_compile_definitions(x48 PRIVATE PLATFORM_DARWIN)
-else()
-    target_compile_definitions(x48 PRIVATE PLATFORM_LINUX)
-endif()
-
-# serial.c uses grantpt/unlockpt/ptsname_r, which glibc gates behind
-# _GNU_SOURCE. Harmless elsewhere.
-if(UNIX AND NOT APPLE)
-    target_compile_definitions(x48 PRIVATE _GNU_SOURCE)
-endif()
-
-# FindSDL exposes either the SDL::SDL imported target (newer CMake) or the
-# classic variables; support both.
-if(TARGET SDL::SDL)
-    target_link_libraries(x48 PRIVATE SDL::SDL)
-else()
-    target_include_directories(x48 PRIVATE ${SDL_INCLUDE_DIRS})
-    target_link_libraries(x48 PRIVATE ${SDL_LIBRARIES})
-endif()
-
+target_link_libraries(x48 PRIVATE hp48 sdl_compat)
 if(MATH_LIBRARY)
     target_link_libraries(x48 PRIVATE ${MATH_LIBRARY})
 endif()
 
 # Output is named "x48"; CMake appends the platform-appropriate executable
-# suffix automatically (none on Linux/macOS, ".exe" on Windows). The old
-# ad-hoc Cygwin Makefile's "main.exe" name is intentionally dropped.
+# suffix automatically (none on Linux/macOS, ".exe" on Windows).
