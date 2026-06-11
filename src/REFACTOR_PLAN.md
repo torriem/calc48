@@ -11,6 +11,25 @@ Turn the current monolithic, global-state, C++-linked program into:
   via a flat FFI-friendly C API.
 - The existing SDL UI reduced to *one client* of that API.
 
+## Frontend strategy (decided)
+
+**Split first, port the frontend later.** The core/GUI split (Phases 1-3)
+reduces the UI coupling to three callbacks and makes the SDL frontend a small,
+self-contained client. Only after that do we touch the frontend itself:
+
+- The existing **SDL 1.2** frontend stays as the working reference during the
+  split. It builds and runs on modern systems as-is, and `sdl12-compat` (SDL
+  1.2 API over SDL2/SDL3) can keep it running with zero code changes if needed.
+- Do **not** port the GUI to SDL3 before the split: the current frontend uses
+  the SDL 1.2 software-surface model (`SDL_Surface` blitting + bundled
+  `SDL_gfxPrimitives` / `SDL_rotozoom`), which SDL3 replaced with
+  `SDL_Renderer`/`SDL_Texture`. An SDL3 port is effectively a frontend rewrite,
+  so it must not be spent on code the split is about to gut.
+- After the split, new frontends (a fresh **SDL3** frontend and/or a **Qt**
+  frontend) are independent targets written against the callback interface,
+  each linking the same `libhp48`. If porting to SDL, go straight to SDL3 and
+  write fresh against the callbacks rather than porting the 1.2 surface code.
+
 ## Current architecture (findings)
 
 ### The GUI boundary is already small
