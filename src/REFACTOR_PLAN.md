@@ -362,17 +362,20 @@ Phase 2 deferred item).
   `libhp48.a` has zero `SDL_*` references and zero external non-libc symbols,
   and the `hp48` CMake target builds with no SDL headers, no SDL link and no
   libm -- so it can be built as a standalone shared library.
-- **Phase 4 — control model implemented; FFI surface partial.**
-  Done: `emulate()` -> `hp48_start()` + `hp48_run_slice(budget_us)` (returns
-  RUNNING/HALTED/DEBUG); `SHUTDN` reworked to the non-blocking `halted` state +
-  `hp48_check_wakeup()`; debugger breakpoint check moved to `hp48_debug_check()`
-  and `emulate_debug()` removed; `cpu->ui.get_event` dropped; the process-global
-  `SIGALRM`/`setitimer` removed; `mainsdl.c` is now a cooperative loop. Core
-  verified still SDL-free; boots and idles correctly (~4% CPU when asleep).
-  Pending: the remaining flat FFI conveniences -- `hp48_create()`/`destroy()`
-  (heap instances + defaults-init factored out of context.c), public
-  `hp48_press_key()`/`release_key()`, and `hp48_get_lcd()`. Needs interactive
-  verification of the SDL app (render + key response) on a display.
+- **Phase 4 — done.** Cooperative control model: `emulate()` ->
+  `hp48_start()` + `hp48_run_slice(budget_us)` (returns RUNNING/HALTED/DEBUG);
+  `SHUTDN` reworked to the non-blocking `halted` state + `hp48_check_wakeup()`;
+  debugger breakpoint check moved to `hp48_debug_check()` and `emulate_debug()`
+  removed; `cpu->ui.get_event` dropped; the process-global `SIGALRM`/`setitimer`
+  removed; `mainsdl.c` is now a cooperative loop. FFI surface added:
+  `hp48_create()`/`destroy()`/`set_active()`/`init_defaults()`, `hp48_step()`,
+  `hp48_press_key()`/`release_key()`, `hp48_get_lcd()` (the SDL button handlers
+  now call the key API). `examples/ffi_smoke.c` (CMake target `hp48_ffi_smoke`)
+  links ONLY libhp48 -- a per-build check that the core is self-contained.
+  Core verified SDL-free; boots and idles (~4% CPU asleep); the example drives
+  create/get_lcd/press/release/destroy with no SDL.
+  Still wanted: interactive verification of the SDL app (render + key response)
+  on a display.
 - **Phase 5 — not started.**
 
 ## Notes
