@@ -96,14 +96,8 @@
 #define X48_MAGIC 0x48503438
 #define NR_CONFIG 8
 
-short rom_is_new = 1;
-long  ram_size;
-long  port1_size;
-long  port1_mask;
-short port1_is_ram;
-long  port2_size;
-long  port2_mask;
-short port2_is_ram;
+/* rom_is_new, ram_size, port1_*, port2_* are now hp48_t members
+ * (see hp48_state.h); rom_is_new's initial value of 1 is set in context.c. */
 
 typedef struct old_keystate_t {
   int rows[9];

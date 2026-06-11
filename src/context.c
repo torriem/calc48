@@ -19,6 +19,8 @@
  */
 static hp48_t default_instance = {
     .last_annunc_state    = -1,   /* lcd.c: force first annunciator redraw */
+    .line_counter         = -1,   /* memory.c */
+    .rom_is_new           = 1,    /* init.c */
 
     /* emulate.c scheduler reload values */
     .sched_instr_rollover = SCHED_INSTR_ROLLOVER,

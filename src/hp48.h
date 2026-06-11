@@ -298,9 +298,8 @@ extern void		receive_char __ProtoType__((void));
 extern void		do_kbd_int  __ProtoType__((void));
 extern void		do_interupt __ProtoType__((void));
 
-extern void		(*write_nibble) __ProtoType__((long addr, int val));
-extern int		(*read_nibble) __ProtoType__((long addr));
-extern int		(*read_nibble_crc) __ProtoType__((long addr));
+/* write_nibble/read_nibble/read_nibble_crc are now hp48_t members (function
+ * pointers selected per sx/gx ROM; see hp48_state.h) */
 
 extern int		emulate	__ProtoType__((void));
 extern int		step_instruction __ProtoType__((void));

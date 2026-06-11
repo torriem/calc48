@@ -59,6 +59,26 @@ typedef struct hp48_t {
   unsigned long delta_i;
   word_64       run;
 
+  /* --- memory access (memory.c): sx/gx-specific nibble accessors --- */
+  void (*write_nibble)(long addr, int val);
+  int  (*read_nibble)(long addr);
+  int  (*read_nibble_crc)(long addr);
+  int  line_counter;
+
+  /* --- memory configuration (init.c) --- */
+  short rom_is_new;
+  long  port1_size;
+  long  port1_mask;
+  short port1_is_ram;
+  long  port2_size;
+  long  port2_mask;
+  short port2_is_ram;
+
+  /* --- wall-clock timer offsets (timer.c) --- */
+  long    systime_offset;
+  word_64 set_0_time;
+  word_64 time_offset;
+
 } hp48_t;
 
 /*
@@ -112,6 +132,27 @@ extern hp48_t *cpu;
 #define delta_t_1             (cpu->delta_t_1)
 #define delta_t_16            (cpu->delta_t_16)
 #define delta_i               (cpu->delta_i)
+
+/* memory access (memory.c) */
+#define write_nibble          (cpu->write_nibble)
+#define read_nibble           (cpu->read_nibble)
+#define read_nibble_crc       (cpu->read_nibble_crc)
+#define line_counter          (cpu->line_counter)
+
+/* memory configuration (init.c). NB: ram_size is intentionally NOT here -- the
+ * old global was dead; every ram_size in the code is a function local. */
+#define rom_is_new            (cpu->rom_is_new)
+#define port1_size            (cpu->port1_size)
+#define port1_mask            (cpu->port1_mask)
+#define port1_is_ram          (cpu->port1_is_ram)
+#define port2_size            (cpu->port2_size)
+#define port2_mask            (cpu->port2_mask)
+#define port2_is_ram          (cpu->port2_is_ram)
+
+/* wall-clock timer offsets (timer.c) */
+#define systime_offset        (cpu->systime_offset)
+#define set_0_time            (cpu->set_0_time)
+#define time_offset           (cpu->time_offset)
 
 #endif /* !HP48_STATE_NO_BRIDGE */
 

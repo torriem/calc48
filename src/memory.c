@@ -91,11 +91,8 @@
 #include "resources.h"
 #include "mmu.h"
 
-/* device_check is an hp48_t member (hp48_state.h) */
-extern short port1_is_ram;
-extern long  port1_mask;
-extern short port2_is_ram;
-extern long  port2_mask;
+/* device_check, port1_is_ram, port1_mask, port2_is_ram, port2_mask are now
+ * hp48_t members (see hp48_state.h) */
 
 #define DEBUG_UNKNOWN 1
 /* #define DEBUG_SERIAL 1 */
@@ -127,11 +124,8 @@ long nibble_masks[16] = {
   0xf0000000
 };
 
-void	(*write_nibble) __ProtoType__((long addr, int val));
-int	(*read_nibble) __ProtoType__((long addr));
-int	(*read_nibble_crc) __ProtoType__((long addr));
-
-static int line_counter = -1;
+/* write_nibble/read_nibble/read_nibble_crc and line_counter are now hp48_t
+ * members (see hp48_state.h). */
 
 static inline int
 #ifdef __FunctionProto__

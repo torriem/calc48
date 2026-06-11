@@ -80,24 +80,15 @@ typedef struct x48_timer_t {
 
 static x48_timer_t timers[NR_TIMERS];
 
-static long systime_offset = 0;
+/* systime_offset, set_0_time, time_offset are now hp48_t members
+ * (see hp48_state.h). */
 
 /*
- * Ticks for THU 01.01.1970 00:00:00
+ * Ticks for THU 01.01.1970 00:00:00 (shared read-only constants)
  */
 //word_64 unix_0_time  = 0x1CF2E8F800000L;
 word_64 unix_0_time  = 0x1CF2E8F800000LL;
 word_64 ticks_10_min = 0x00b40000L;
-
-/*
- * Will be in saturn_t in the future
- */
-word_64 set_0_time = 0x0;
-
-/*
- * Calculated as (unix_0_time + set_0_time)
- */
-word_64 time_offset = 0x0;
 
 #define RAM_BASE_SX	0x70000
 #define ACCESSTIME_SX	(0x70052 - RAM_BASE_SX)
