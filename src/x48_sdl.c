@@ -861,34 +861,11 @@ button_pressed(b)
 int     b;
 #endif
 {
-  int code;
-  int i, r, c;
-
 	if(buttons[b].pressed == 1)		// Check not already pressed (may be important: avoids a useless do_kbd_int)
 		return 0;
 	buttons[b].pressed = 1;
-	
-  code = buttons[b].code;
-  
-  if (code == 0x8000) {
-    for (i = 0; i < 9; i++)
-      saturn.keybuf.rows[i] |= 0x8000;
-    do_kbd_int();
-  } else {
-    r = code >> 4;
-    c = 1 << (code & 0xf);
-    if ((saturn.keybuf.rows[r] & c) == 0) {
-      if (saturn.kbd_ien) {
-        do_kbd_int();
-      }
-#ifdef DEBUG_BUTTONS      
-      if ((saturn.keybuf.rows[r] & c)) {
-fprintf(stderr, "bug\n");
-      }
-#endif
-      saturn.keybuf.rows[r] |= c;
-    }
-  }
+
+  hp48_press_key(buttons[b].code);   /* core input API (Phase 4) */
 #ifdef DEBUG_BUTTONS
   fprintf(stderr, "Button pressed  %d (%s)\n",
           buttons[b].code, buttons[b].name);
@@ -904,23 +881,11 @@ button_released(b)
 int     b;
 #endif
 {
-	int code;
-
 	if(buttons[b].pressed == 0)		// Check not already released (not critical)
 		return 0;
 	buttons[b].pressed = 0;
 
-  code = buttons[b].code;
-  if (code == 0x8000) {
-    int i;
-    for (i = 0; i < 9; i++)
-      saturn.keybuf.rows[i] &= ~0x8000;
-  } else {
-    int r, c;
-    r = code >> 4;
-    c = 1 << (code & 0xf);
-    saturn.keybuf.rows[r] &= ~c;
-  }
+  hp48_release_key(buttons[b].code);   /* core input API (Phase 4) */
 #ifdef DEBUG_BUTTONS
   fprintf(stderr, "Button released  %d (%s)\n",
           buttons[b].code, buttons[b].name);

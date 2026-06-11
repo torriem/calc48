@@ -2483,3 +2483,23 @@ int budget_us;
 
   return enter_debugger ? HP48_DEBUG : HP48_RUNNING;
 }
+
+/*
+ *  Execute exactly one instruction and advance the scheduler by one tick
+ *  (Phase 4): the single-step unit, for debuggers, tests and REPL-style use.
+ *  Mirrors one iteration of hp48_run_slice's loop without the time budget.
+ */
+int
+#ifdef __FunctionProto__
+hp48_step(void)
+#else
+hp48_step()
+#endif
+{
+  int rv = step_instruction();
+
+  if (schedule_event-- <= 0)
+    schedule();
+
+  return rv;
+}

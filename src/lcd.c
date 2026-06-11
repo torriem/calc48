@@ -339,4 +339,28 @@ redraw_annunc()
   draw_annunc();
 }
 
+/*
+ *  Public LCD-pull API (Phase 4).  Returns a pointer to the active instance's
+ *  live LCD buffer, for hosts that read the display instead of receiving
+ *  draw_nibble() pushes.  Each byte is one 4-pixel nibble (bit 0 is the
+ *  leftmost pixel of the four).  The buffer is DISP_ROWS rows of
+ *  NIBS_PER_BUFFER_ROW nibbles; the visible HP48 display occupies the first
+ *  ~131 pixels of each row.  *rows / *row_stride may be NULL.
+ */
+const unsigned char *
+#ifdef __FunctionProto__
+hp48_get_lcd(int *rows, int *row_stride)
+#else
+hp48_get_lcd(rows, row_stride)
+int *rows;
+int *row_stride;
+#endif
+{
+  if (rows)
+    *rows = DISP_ROWS;
+  if (row_stride)
+    *row_stride = NIBS_PER_BUFFER_ROW;
+  return &lcd_buffer[0][0];
+}
+
 

@@ -320,4 +320,18 @@ extern void		load_addr __ProtoType__((word_20 *dat, long addr,
 /* Per-instance state aggregation + active-context bridges (Phase 2). */
 #include "hp48_state.h"
 
+/* ---- Public embedding API (Phase 4) ------------------------------------ *
+ * Flat C surface for embedders / FFI.  All calls operate on the currently
+ * active instance (hp48_create()/hp48_set_active() select it).  hp48_set_ui()
+ * is declared in hp48_ui.h; hp48_start()/hp48_run_slice() above. */
+extern hp48_t *hp48_create	__ProtoType__((void));
+extern void    hp48_destroy	__ProtoType__((hp48_t *h));
+extern void    hp48_set_active	__ProtoType__((hp48_t *h));
+extern void    hp48_init_defaults __ProtoType__((hp48_t *h));
+extern int     hp48_step	__ProtoType__((void));
+extern void    hp48_press_key	__ProtoType__((int code));
+extern void    hp48_release_key	__ProtoType__((int code));
+extern const unsigned char *hp48_get_lcd __ProtoType__((int *rows,
+							 int *row_stride));
+
 #endif /* !_HP48_H */

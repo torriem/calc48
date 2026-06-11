@@ -442,6 +442,58 @@ do_kbd_int()
   }
 }
 
+/*
+ *  Public input API (Phase 4).  `code` is the HP48 keyboard-matrix code:
+ *  0x8000 is the ON key (all rows); otherwise the row is (code >> 4) and the
+ *  column bit is (1 << (code & 0xf)).  These set/clear the bit in the active
+ *  instance's key buffer and raise a keyboard interrupt on press, exactly as
+ *  the SDL front end used to do inline.
+ */
+void
+#ifdef __FunctionProto__
+hp48_press_key(int code)
+#else
+hp48_press_key(code)
+int code;
+#endif
+{
+  int i, r, c;
+
+  if (code == 0x8000) {
+    for (i = 0; i < 9; i++)
+      saturn.keybuf.rows[i] |= 0x8000;
+    do_kbd_int();
+  } else {
+    r = code >> 4;
+    c = 1 << (code & 0xf);
+    if ((saturn.keybuf.rows[r] & c) == 0) {
+      if (saturn.kbd_ien)
+        do_kbd_int();
+      saturn.keybuf.rows[r] |= c;
+    }
+  }
+}
+
+void
+#ifdef __FunctionProto__
+hp48_release_key(int code)
+#else
+hp48_release_key(code)
+int code;
+#endif
+{
+  int i, r, c;
+
+  if (code == 0x8000) {
+    for (i = 0; i < 9; i++)
+      saturn.keybuf.rows[i] &= ~0x8000;
+  } else {
+    r = code >> 4;
+    c = 1 << (code & 0xf);
+    saturn.keybuf.rows[r] &= ~c;
+  }
+}
+
 void
 #ifdef __FunctionProto__
 do_reset_interrupt_system(void)

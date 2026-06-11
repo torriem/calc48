@@ -119,3 +119,11 @@ endif()
 
 # Output is named "x48"; CMake appends the platform-appropriate executable
 # suffix automatically (none on Linux/macOS, ".exe" on Windows).
+
+# ---------------------------------------------------------------------------
+# hp48_ffi_smoke: headless embedding example / regression
+# ---------------------------------------------------------------------------
+# Links ONLY the core library (no SDL), so building it every time keeps us
+# honest that libhp48 is self-contained and usable without a UI toolkit.
+add_executable(hp48_ffi_smoke examples/ffi_smoke.c)
+target_link_libraries(hp48_ffi_smoke PRIVATE hp48)
