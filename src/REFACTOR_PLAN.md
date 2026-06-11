@@ -209,7 +209,18 @@ Define a clean, flat `hp48.h` for embedders / Python:
   Remaining for a future Phase 2 follow-up if full multi-instance config is
   wanted: fold the resources config into `hp48_t` (or an `hp48_config` passed
   to create), and decide on debugger ownership.
-- **Phases 3-5 — not started.**
+- **Phase 3 — done.** The core no longer depends on SDL. A new SDL-free header
+  `hp48_ui.h` defines `hp48_ui_t` (callbacks: draw_nibble, draw_annunc,
+  get_event, adjust_contrast, show_connections, exit) and the `disp_t` LCD
+  geometry; both live on `hp48_t`, installed via `hp48_set_ui()`. The six
+  former direct SDL calls now go through `cpu->ui.*` (NULL-guarded for headless
+  use). `ann_tbl` (SDL surfaces) moved to the front end, which now receives the
+  raw annunciator bitmask; `disp` moved into `hp48_t`; `progname` is core-owned.
+  The SDL front end registers its callbacks in `register_sdl_ui()`. Verified:
+  `libhp48.a` has zero `SDL_*` references and zero external non-libc symbols,
+  and the `hp48` CMake target builds with no SDL headers, no SDL link and no
+  libm -- so it can be built as a standalone shared library.
+- **Phases 4-5 — not started.**
 
 ## Notes
 
