@@ -170,8 +170,51 @@ Define a clean, flat `hp48.h` for embedders / Python:
 - Provide a Python binding example (cffi / ctypes).
 - The SDL frontend becomes just one client of the same API.
 
+## Progress / status
+
+- **Phase 0 — done.** Pure-C CMake build (no g++), executable `x48`.
+- **Phase 1 — done.** `libhp48` static library + SDL frontend; the only
+  frontend symbols the core references are the three Phase 3 callbacks.
+- **Phase 2 — substantially done.** The mechanism (`hp48_t`, the active-context
+  pointer `cpu`, and the `hp48_state.h` bridge macros) is in place, and all
+  genuine *runtime emulator state* now lives in `hp48_t`:
+  - saturn CPU/peripheral registers; LCD display + buffers; the instruction
+    loop / event scheduler; memory accessors (`read/write_nibble`) and the
+    port configuration; wall-clock timer offsets; interrupt/keyboard/bank
+    state; ROM identity (`opt_gx`, `rom_size`); the `device_t` I/O block; and
+    the serial/IR file descriptors.
+  - Bridging notes: most globals are reached via `#define NAME (cpu->NAME)`.
+    Names that collide with SDL or with a local/member are handled directly:
+    `display` (collides with an SDL_video.h param) and `run` (collides with a
+    timer.c local/member) use `cpu->...` at their call sites instead of a
+    macro. `context.c` defines `HP48_STATE_NO_BRIDGE` so it can initialize the
+    struct by real field names. Non-zero defaults that were static initializers
+    are seeded in `context.c`'s instance initializer. The dead global
+    `ram_size` was dropped.
+
+  Deliberately **left as globals** for now (not per-instance runtime state):
+  - **Interactive debugger** (`enter_debugger`, `in_debugger`, `exec_flags`,
+    `num_bkpts`, `bkpt_tbl`, command buffers): a singleton development tool; its
+    breakpoint type is debugger-internal. Revisit only if per-instance
+    debugging is needed.
+  - **Startup configuration** (`resources.c`: `throttle`, `romFileName`,
+    `homeDirectory`, `verbose`, …): populated from argv / X-resources. This is
+    config, not state, and is better threaded through `hp48_create()` in
+    Phase 4 than swept into the struct now.
+  - **Read-only lookup tables** (`nibble_masks`, `conf_tab_*`, disasm tables,
+    `unix_0_time`, `ticks_10_min`, …): correctly shared; not per-instance.
+  - **Scratch buffers** (`errbuf`, `fixbuf`, and the `old_saturn` /
+    `saturn_0_3_0` state-file conversion temporaries).
+
+  Remaining for a future Phase 2 follow-up if full multi-instance config is
+  wanted: fold the resources config into `hp48_t` (or an `hp48_config` passed
+  to create), and decide on debugger ownership.
+- **Phases 3-5 — not started.**
+
 ## Notes
 
 - Phases 0 and 1 are safe and independently committable; do them first.
 - Phase 2 is the largest change but stays mechanical and testable thanks to the
   `#define` bridge.
+- The single static instance in `context.c` keeps current behavior; the active
+  pointer `cpu` is rebindable, which is what Phase 4's create/destroy will use.
