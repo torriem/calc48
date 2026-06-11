@@ -94,6 +94,11 @@ typedef struct hp48_t {
   /* --- memory-mapped I/O device registers (device.c) --- */
   device_t device;
 
+  /* --- serial / IR port file descriptors (serial.c) --- */
+  int wire_fd;
+  int ir_fd;
+  int ttyp;
+
 } hp48_t;
 
 /*
@@ -182,6 +187,11 @@ extern hp48_t *cpu;
 
 /* memory-mapped I/O device registers (device.c) */
 #define device                (cpu->device)
+
+/* serial / IR port file descriptors (serial.c) */
+#define wire_fd               (cpu->wire_fd)
+#define ir_fd                 (cpu->ir_fd)
+#define ttyp                  (cpu->ttyp)
 
 #endif /* !HP48_STATE_NO_BRIDGE */
 

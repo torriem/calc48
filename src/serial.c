@@ -88,9 +88,7 @@
 #include "resources.h"
 
 
-static int wire_fd;
-static int ir_fd;
-static int ttyp;
+/* wire_fd, ir_fd, ttyp are now hp48_t members (see hp48_state.h) */
 
 /* rece_instr is an hp48_t member (hp48_state.h) */
 
