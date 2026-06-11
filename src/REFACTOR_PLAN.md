@@ -152,17 +152,104 @@ Mechanical and testable at each step.
   `cpu->iface.*` instead of `SDLDrawNibble` / `SDLDrawAnnunc` / `SDLGetEvent`.
 - Core now has zero SDL symbols → `libhp48` links standalone.
 
-### Phase 4 — Public C API (FFI surface)
+### Phase 4 — Public C API + cooperative event-loop model (FFI surface)
 
-Define a clean, flat `hp48.h` for embedders / Python:
+#### Control-model decision: cooperative `run_slice`, host owns the loop
 
-- `hp48_create()` / `hp48_destroy()`
-- `hp48_load_rom()`
-- `hp48_load_state()` / `hp48_save_state()`
-- `hp48_step()` / `hp48_run(n)`
-- `hp48_press_key()` / `hp48_release_key()`
-- `hp48_get_lcd()`
-- `hp48_set_iface()`
+Today the emulator **owns the thread and the loop**: `emulate()` is an infinite
+`do { step_instruction(); … if (schedule_event-- <= 0) schedule(); } while
+(!enter_debugger)`, paced by a process-global `SIGALRM`/`setitimer` (20 ms)
+whose only job is to set `got_alarm`, which makes `schedule()` reach out and
+pump the SDL event queue via `cpu->ui.get_event()`. That collides with any
+toolkit (Qt) that owns its own loop, and a library must not install a global
+`SIGALRM`.
+
+Decision: invert control. The library exposes a bounded **`hp48_run_slice()`**
+that runs a chunk and returns; the *host* owns the loop and calls it on a
+timer. This is single-threaded, lock-free and identical across SDL, Qt, Python
+and tests. An embedder who wants threading can run `while(running)
+run_slice();` on their own thread on top of this — so the core stays
+loop-agnostic and toolkit-agnostic.
+
+Key facts that make this cheap (verified in the code):
+- `SIGALRM` does **not** drive the CPU; it only paces UI polling. The CPU
+  free-runs. Removing the signal costs nothing in execution.
+- `schedule()` fires on an *instruction* countdown, and reconciles the HP48
+  hardware timers (8192 Hz / 16 Hz) and `i_per_s` against `gettimeofday()`.
+  That stays untouched, so the calculator's clock remains correct regardless
+  of how often `run_slice()` is called.
+- Pump cadence is the *display/input* rate (~50–60 Hz, 16–20 ms), decoupled
+  from the CPU and timer rates; the in-slice scheduler advances the fine
+  timers in bulk. `run_slice` should be wall-clock-budgeted (advance emulated
+  time to catch up to real time, capped to avoid spirals) so it self-throttles
+  and idles cheaply.
+
+#### `emulate()` → `run_slice()` transformation
+
+1. **One-time setup leaves the loop** into `hp48_start()` (timer resets, tick
+   seeding, `set_t1`), called once after load.
+2. **`run_slice(budget_us)`** is the old loop body with the exit condition
+   inverted: loop `step_instruction()` + `schedule()` until a real-time budget
+   elapses (checked every ~1024 instructions to avoid syscall overhead), or the
+   calc halts, or `enter_debugger`. Returns a status (`RUNNING` / `HALTED` /
+   `DEBUG`). `emulate_debug()` folds in as the same function with the
+   breakpoint check.
+3. **`SHUTDN` stops blocking (the crucial change).** `do_shutdown()` currently
+   blocks in `do { pause(); … } while (!wake)` *inside* `step_instruction()`,
+   sleeping on `SIGALRM` and pumping events itself — impossible in a
+   cooperative slice. Rework it to do the pre-sleep bookkeeping, set
+   `cpu->halted = 1`, and **return**. The wake-decision logic moves verbatim
+   into `hp48_check_wakeup()` (called once per slice while halted, minus
+   `pause()`/`got_alarm`). A sleeping calculator then costs ~one
+   `gettimeofday` + a few checks per tick — effectively idle, no spin. New
+   state: `int halted;` in `hp48_t`. This is the riskiest spot — verify
+   against auto-off and the TIMER1/TIMER2 wake paths.
+
+#### What is removed
+
+- `setitimer` / `SIGALRM` / the `SIGALRM` arm of `signal_handler` / `got_alarm`.
+- `pause()` in `do_shutdown`.
+- **`cpu->ui.get_event` entirely**: in the cooperative model the host pumps its
+  own events between slices and delivers keys via `hp48_press_key()`; the core
+  never reaches out. Remaining `ui` callbacks (`draw_nibble`, `draw_annunc`,
+  `adjust_contrast`, `show_connections`, `exit`) stay. ~20 ms input latency is
+  imperceptible.
+
+#### Host loops after the change
+
+SDL front end (replaces the `setitimer` + `do { emulate(); } while(1)`):
+
+```c
+hp48_start();
+for (;;) {
+    int st = hp48_run_slice(20000);   /* ~20 ms of real time, or until halt */
+    SDLGetEvent();                    /* host pumps its own events + keys */
+    if (st == HP48_DEBUG) debug();
+    SDL_Delay(frame_remaining_ms());  /* idle out the rest of the frame */
+}
+```
+
+Qt — no thread, no signals; `QApplication::exec()` owns the loop:
+
+```cpp
+QTimer t; t.setInterval(20);
+connect(&t, &QTimer::timeout, [&]{
+    if (hp48_run_slice(20000)) lcdWidget->update();   /* repaint if dirty */
+});
+t.start();
+```
+
+#### Public C API (flat `hp48.h` for embedders / Python)
+
+- `hp48_create()` / `hp48_destroy()` — allocate/free an `hp48_t`, rebind `cpu`.
+- `hp48_load_rom()` / `hp48_load_state()` / `hp48_save_state()`.
+- `hp48_set_ui()` (already exists) — install the rendering callbacks.
+- `hp48_start()` — one-time run setup.
+- `hp48_run_slice(budget_us)` — cooperative slice; returns RUNNING/HALTED/DEBUG.
+- `hp48_step()` — single instruction (debug/test/Python REPL use).
+- `hp48_press_key()` / `hp48_release_key()` — input, delivered between slices.
+- `hp48_get_lcd()` — read the LCD pixel buffer (for hosts that pull rather than
+  receive `draw_nibble` pushes).
 
 ### Phase 5 — Ship `libhp48.so` + Python binding
 
@@ -220,7 +307,12 @@ Define a clean, flat `hp48.h` for embedders / Python:
   `libhp48.a` has zero `SDL_*` references and zero external non-libc symbols,
   and the `hp48` CMake target builds with no SDL headers, no SDL link and no
   libm -- so it can be built as a standalone shared library.
-- **Phases 4-5 — not started.**
+- **Phase 4 — designed, not yet implemented.** Control model decided:
+  cooperative `hp48_run_slice()` (host owns the loop), `SIGALRM` removed,
+  `SHUTDN` reworked to a non-blocking `halted` state, `get_event` dropped. See
+  the Phase 4 section above for the full `emulate()` -> `run_slice()` sketch and
+  the public API surface.
+- **Phase 5 — not started.**
 
 ## Notes
 
