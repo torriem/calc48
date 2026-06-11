@@ -263,11 +263,7 @@ typedef struct saturn_t {
 #define DISP_ROWS	       64
 #define NIBS_PER_BUFFER_ROW    (NIBBLES_PER_ROW + 2)
 
-extern unsigned char disp_buf[DISP_ROWS][NIBS_PER_BUFFER_ROW];
-extern unsigned char lcd_buffer[DISP_ROWS][NIBS_PER_BUFFER_ROW];
-
-
-
+/* disp_buf, lcd_buffer are now hp48_t members (see hp48_state.h) */
 
 extern int		got_alarm;
 
@@ -279,7 +275,8 @@ extern int		adj_time_pending;
 extern long		sched_adjtime;
 extern long		schedule_event;
 
-extern display_t	display;
+/* `display` is now an hp48_t member, accessed as cpu->display (not bridged
+ * by macro: the name collides with an SDL_video.h parameter) */
 extern void		init_display __ProtoType__((void));
 
 /* `saturn` is now a member of hp48_t, reached via the bridge in hp48_state.h */

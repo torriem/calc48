@@ -82,13 +82,8 @@
 #include "annunc.h"
 #include "device.h"
 
-static int last_annunc_state = -1;
-
-display_t display;
-
-
-unsigned char disp_buf[DISP_ROWS][NIBS_PER_BUFFER_ROW];
-unsigned char lcd_buffer[DISP_ROWS][NIBS_PER_BUFFER_ROW];
+/* display, disp_buf, lcd_buffer, last_annunc_state are now hp48_t members
+ * (see hp48_state.h). */
 
 ann_struct_t ann_tbl[] = {
   { ANN_LEFT, 16, 4, ann_left_width, ann_left_height, ann_left_bits },
@@ -111,34 +106,34 @@ init_display(void)
 init_display()
 #endif
 {
-  display.on = (int)(saturn.disp_io & 0x8) >> 3;
+  cpu->display.on = (int)(saturn.disp_io & 0x8) >> 3;
 
-  display.disp_start = (saturn.disp_addr & 0xffffe);
-  display.offset = (saturn.disp_io & 0x7);
-  disp.offset = 2 * display.offset;
+  cpu->display.disp_start = (saturn.disp_addr & 0xffffe);
+  cpu->display.offset = (saturn.disp_io & 0x7);
+  disp.offset = 2 * cpu->display.offset;
 
-  display.lines = (saturn.line_count & 0x3f);
-  if (display.lines == 0)
-    display.lines = 63;
-  disp.lines = 2 * display.lines;
+  cpu->display.lines = (saturn.line_count & 0x3f);
+  if (cpu->display.lines == 0)
+    cpu->display.lines = 63;
+  disp.lines = 2 * cpu->display.lines;
   if (disp.lines < 110)
     disp.lines = 110;
 
-  if (display.offset > 3)
-    display.nibs_per_line = (NIBBLES_PER_ROW+saturn.line_offset+2) & 0xfff;
+  if (cpu->display.offset > 3)
+    cpu->display.nibs_per_line = (NIBBLES_PER_ROW+saturn.line_offset+2) & 0xfff;
   else
-    display.nibs_per_line = (NIBBLES_PER_ROW+saturn.line_offset) & 0xfff;
+    cpu->display.nibs_per_line = (NIBBLES_PER_ROW+saturn.line_offset) & 0xfff;
 
-  display.disp_end = display.disp_start +
-	             (display.nibs_per_line * (display.lines + 1));
+  cpu->display.disp_end = cpu->display.disp_start +
+	             (cpu->display.nibs_per_line * (cpu->display.lines + 1));
 
-  display.menu_start = saturn.menu_addr;
-  display.menu_end = saturn.menu_addr + 0x110;
+  cpu->display.menu_start = saturn.menu_addr;
+  cpu->display.menu_end = saturn.menu_addr + 0x110;
 
-  display.contrast = saturn.contrast_ctrl;
-  display.contrast |= ((saturn.disp_test & 0x1) << 4);
+  cpu->display.contrast = saturn.contrast_ctrl;
+  cpu->display.contrast |= ((saturn.disp_test & 0x1) << 4);
 
-  display.annunc = saturn.annunc;
+  cpu->display.annunc = saturn.annunc;
 
   memset(disp_buf, 0xf0, sizeof(disp_buf));
   memset(lcd_buffer, 0xf0, sizeof(lcd_buffer));
@@ -165,7 +160,7 @@ int val;
   	// SDL PORT
   	///////////////////////////////////////////////
 	x = (c * 4);					// x: start in pixels
-	if (r <= display.lines)
+	if (r <= cpu->display.lines)
 		x -= disp.offset;			// Correct the pixels with display offset
 	y = r;							// y: start in pixels
   	SDLDrawNibble(x,y,val);
@@ -186,7 +181,7 @@ int row;
   
 
   line_length = NIBBLES_PER_ROW;
-  if ((display.offset > 3) && (row <= display.lines))
+  if ((cpu->display.offset > 3) && (row <= cpu->display.lines))
     line_length += 2;
   for (i = 0; i < line_length; i++) {
     v = read_nibble(addr + i);
@@ -215,26 +210,26 @@ update_display()
       //refresh_icon();
 		return;
    }
-  if (display.on) {
-    addr = display.disp_start;
-      if (display.offset != old_offset) {
+  if (cpu->display.on) {
+    addr = cpu->display.disp_start;
+      if (cpu->display.offset != old_offset) {
         memset(disp_buf, 0xf0,
-               (size_t)((display.lines+1) * NIBS_PER_BUFFER_ROW));
+               (size_t)((cpu->display.lines+1) * NIBS_PER_BUFFER_ROW));
         memset(lcd_buffer, 0xf0,
-               (size_t)((display.lines+1) * NIBS_PER_BUFFER_ROW));
-        old_offset = display.offset;
+               (size_t)((cpu->display.lines+1) * NIBS_PER_BUFFER_ROW));
+        old_offset = cpu->display.offset;
       }
-      if (display.lines != old_lines) {
+      if (cpu->display.lines != old_lines) {
         memset(&disp_buf[56][0], 0xf0, (size_t)(8 * NIBS_PER_BUFFER_ROW));
         memset(&lcd_buffer[56][0], 0xf0, (size_t)(8 * NIBS_PER_BUFFER_ROW));
-        old_lines = display.lines;
+        old_lines = cpu->display.lines;
       }
-      for (i = 0; i <= display.lines; i++) {
+      for (i = 0; i <= cpu->display.lines; i++) {
         draw_row(addr, i);
-        addr += display.nibs_per_line;
+        addr += cpu->display.nibs_per_line;
       }
     if (i < DISP_ROWS) {
-      addr = display.menu_start;
+      addr = cpu->display.menu_start;
 
         for (; i < DISP_ROWS; i++) {
           draw_row(addr, i);
@@ -277,12 +272,12 @@ word_4 val;
   int x, y;
   
 	
-  offset = (addr - display.disp_start);
-  x = offset % display.nibs_per_line;
+  offset = (addr - cpu->display.disp_start);
+  x = offset % cpu->display.nibs_per_line;
   if (x < 0 || x > 35)
     return;
-  if (display.nibs_per_line != 0) {
-    y = offset / display.nibs_per_line;
+  if (cpu->display.nibs_per_line != 0) {
+    y = offset / cpu->display.nibs_per_line;
     if (y < 0 || y > 63)
       return;
       if (val != disp_buf[y][x]) {
@@ -290,7 +285,7 @@ word_4 val;
         draw_nibble(x, y, val);
       }
   } else {
-      for (y = 0; y < display.lines; y++) {
+      for (y = 0; y < cpu->display.lines; y++) {
         if (val != disp_buf[y][x]) {
           disp_buf[y][x] = val;
           draw_nibble(x, y, val);
@@ -311,9 +306,9 @@ word_4 val;
   long offset;
   int x, y;
 
-  offset = (addr - display.menu_start);
+  offset = (addr - cpu->display.menu_start);
     x = offset % NIBBLES_PER_ROW;
-    y = display.lines + (offset / NIBBLES_PER_ROW) + 1;
+    y = cpu->display.lines + (offset / NIBBLES_PER_ROW) + 1;
     if (val != disp_buf[y][x]) {
       disp_buf[y][x] = val;
       draw_nibble(x, y, val);
@@ -332,7 +327,7 @@ draw_annunc()
   int val;
   int i;
 
-  val = display.annunc;
+  val = cpu->display.annunc;
 
   if (val == last_annunc_state)
     return;

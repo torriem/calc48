@@ -162,37 +162,37 @@ int val;
     case 0x100:					/* DISPIO */
       if (val != saturn.disp_io) {
         saturn.disp_io = val;
-        display.on = (val & 0x8) >> 3;
-        display.offset = val & 0x7;
-        disp.offset = 2 * display.offset;
-        if (display.offset > 3)
-          display.nibs_per_line =
+        cpu->display.on = (val & 0x8) >> 3;
+        cpu->display.offset = val & 0x7;
+        disp.offset = 2 * cpu->display.offset;
+        if (cpu->display.offset > 3)
+          cpu->display.nibs_per_line =
                   (NIBBLES_PER_ROW+saturn.line_offset+2) & 0xfff;
         else
-          display.nibs_per_line =
+          cpu->display.nibs_per_line =
                   (NIBBLES_PER_ROW+saturn.line_offset) & 0xfff;
-        display.disp_end = display.disp_start +
-		           (display.nibs_per_line * (display.lines + 1));
+        cpu->display.disp_end = cpu->display.disp_start +
+		           (cpu->display.nibs_per_line * (cpu->display.lines + 1));
         device.display_touched = DISP_INSTR_OFF;
       }
 #ifdef DEBUG_DISPLAY
-      fprintf(stderr, "%.5lx: DISP ON: %x\n", saturn.PC, display.on);
+      fprintf(stderr, "%.5lx: DISP ON: %x\n", saturn.PC, cpu->display.on);
 #endif
       return;
     case 0x101:						/* CONTRAST CONTROL */
       saturn.contrast_ctrl = val;
-      display.contrast &= ~0x0f;
-      display.contrast |= val;
+      cpu->display.contrast &= ~0x0f;
+      cpu->display.contrast |= val;
 #ifdef DEBUG_CONTRAST
-      fprintf(stderr, "%.5lx: Contrast: 0x%x\n", saturn.PC, display.contrast);
+      fprintf(stderr, "%.5lx: Contrast: 0x%x\n", saturn.PC, cpu->display.contrast);
 #endif
       device.contrast_touched = 1;
       return;
     case 0x102:						/* DISPLAY TEST */
-      display.contrast &= ~0xf0;
-      display.contrast |= ((val & 0x1) << 4);
+      cpu->display.contrast &= ~0xf0;
+      cpu->display.contrast |= ((val & 0x1) << 4);
 #ifdef DEBUG_CONTRAST
-      fprintf(stderr, "%.5lx: Contrast: 0x%x\n", saturn.PC, display.contrast);
+      fprintf(stderr, "%.5lx: Contrast: 0x%x\n", saturn.PC, cpu->display.contrast);
 #endif
       device.contrast_touched = 1;
       /* Fall through */
@@ -223,7 +223,7 @@ int val;
     case 0x10b: case 0x10c:				/* ANNUNC */
       saturn.annunc &= ~nibble_masks[addr - 0x10b];
       saturn.annunc |= val << ((addr - 0x10b) * 4);
-      display.annunc = saturn.annunc;
+      cpu->display.annunc = saturn.annunc;
       device.ann_touched = 1;
       return;
     case 0x10d:						/* BAUD */
@@ -333,15 +333,15 @@ int val;
     case 0x124:
       saturn.disp_addr &= ~nibble_masks[addr - 0x120];
       saturn.disp_addr |= val << ((addr - 0x120) * 4);
-      if (display.disp_start != (saturn.disp_addr & 0xffffe)) {
-        display.disp_start = saturn.disp_addr & 0xffffe;
-        display.disp_end = display.disp_start +
-		           (display.nibs_per_line * (display.lines + 1));
+      if (cpu->display.disp_start != (saturn.disp_addr & 0xffffe)) {
+        cpu->display.disp_start = saturn.disp_addr & 0xffffe;
+        cpu->display.disp_end = cpu->display.disp_start +
+		           (cpu->display.nibs_per_line * (cpu->display.lines + 1));
         device.display_touched = DISP_INSTR_OFF;
       }
 #ifdef DEBUG_DISPLAY
-      fprintf(stderr, "%.5lx: DISPLAY: %lx\n", saturn.PC, display.disp_start);
-      fprintf(stderr, "%.5lx: DISP END: %lx\n", saturn.PC, display.disp_end);
+      fprintf(stderr, "%.5lx: DISPLAY: %lx\n", saturn.PC, cpu->display.disp_start);
+      fprintf(stderr, "%.5lx: DISP END: %lx\n", saturn.PC, cpu->display.disp_end);
 #endif
       return;
     case 0x125: case 0x126: case 0x127:			/* LINE_OFFSET */
@@ -349,38 +349,38 @@ int val;
       saturn.line_offset |= val << ((addr - 0x125) * 4);
       if (saturn.line_offset != old_line_offset) {
         old_line_offset = saturn.line_offset;
-        if (display.offset > 3)
-          display.nibs_per_line =
+        if (cpu->display.offset > 3)
+          cpu->display.nibs_per_line =
                   (NIBBLES_PER_ROW+saturn.line_offset+2) & 0xfff;
         else
-          display.nibs_per_line =
+          cpu->display.nibs_per_line =
                   (NIBBLES_PER_ROW+saturn.line_offset) & 0xfff;
-        display.disp_end = display.disp_start +
-		           (display.nibs_per_line * (display.lines + 1));
+        cpu->display.disp_end = cpu->display.disp_start +
+		           (cpu->display.nibs_per_line * (cpu->display.lines + 1));
         device.display_touched = DISP_INSTR_OFF;
       }
 #ifdef DEBUG_DISPLAY
       fprintf(stderr, "%.5lx: DISP LINE SIZE: %x\n",
-              saturn.PC, display.nibs_per_line);
-      fprintf(stderr, "%.5lx: DISP END: %lx\n", saturn.PC, display.disp_end);
+              saturn.PC, cpu->display.nibs_per_line);
+      fprintf(stderr, "%.5lx: DISP END: %lx\n", saturn.PC, cpu->display.disp_end);
 #endif
       return;
     case 0x128: case 0x129:				/* LINE_COUNT */
       saturn.line_count &= ~nibble_masks[addr - 0x128];
       saturn.line_count |= val << ((addr - 0x128) * 4);
       line_counter = -1;
-      if (display.lines != (saturn.line_count & 0x3f)) {
-        display.lines = saturn.line_count & 0x3f;
-	if (display.lines == 0)
-          display.lines = 63;
-        disp.lines = 2 * display.lines;
-        display.disp_end = display.disp_start +
-		           (display.nibs_per_line * (display.lines + 1));
+      if (cpu->display.lines != (saturn.line_count & 0x3f)) {
+        cpu->display.lines = saturn.line_count & 0x3f;
+	if (cpu->display.lines == 0)
+          cpu->display.lines = 63;
+        disp.lines = 2 * cpu->display.lines;
+        cpu->display.disp_end = cpu->display.disp_start +
+		           (cpu->display.nibs_per_line * (cpu->display.lines + 1));
         device.display_touched = DISP_INSTR_OFF;
       }
 #ifdef DEBUG_DISPLAY
-      fprintf(stderr, "%.5lx: DISP LINES: %x\n", saturn.PC, display.lines);
-      fprintf(stderr, "%.5lx: DISP END: %lx\n", saturn.PC, display.disp_end);
+      fprintf(stderr, "%.5lx: DISP LINES: %x\n", saturn.PC, cpu->display.lines);
+      fprintf(stderr, "%.5lx: DISP END: %lx\n", saturn.PC, cpu->display.disp_end);
 #endif
       return;
     case 0x12a: case 0x12b: case 0x12c: case 0x12d:	/* Dont know yet */
@@ -403,9 +403,9 @@ int val;
     case 0x134:
       saturn.menu_addr &= ~nibble_masks[addr - 0x130];
       saturn.menu_addr |= val << ((addr - 0x130) * 4);
-      if (display.menu_start != saturn.menu_addr) {
-        display.menu_start = saturn.menu_addr;
-        display.menu_end = display.menu_start + 0x110;
+      if (cpu->display.menu_start != saturn.menu_addr) {
+        cpu->display.menu_start = saturn.menu_addr;
+        cpu->display.menu_end = cpu->display.menu_start + 0x110;
         device.display_touched = DISP_INSTR_OFF;
       }
       return;
@@ -677,13 +677,13 @@ int val;
   }
   if (device.display_touched || !disp.mapped)
     return;
-  if (addr >= display.disp_start && addr < display.disp_end)
+  if (addr >= cpu->display.disp_start && addr < cpu->display.disp_end)
     {
       disp_draw_nibble(addr, val);
     }
-  if (display.lines == 63)
+  if (cpu->display.lines == 63)
     return;
-  if (addr >= display.menu_start && addr < display.menu_end)
+  if (addr >= cpu->display.menu_start && addr < cpu->display.menu_end)
     {
       menu_draw_nibble(addr, val);
     }
@@ -945,13 +945,13 @@ int val;
     }
   if (device.display_touched || !disp.mapped)
     return;
-  if (addr >= display.disp_start && addr < display.disp_end)
+  if (addr >= cpu->display.disp_start && addr < cpu->display.disp_end)
     {
       disp_draw_nibble(addr, val);
     }
-  if (display.lines == 63)
+  if (cpu->display.lines == 63)
     return;
-  if (addr >= display.menu_start && addr < display.menu_end)
+  if (addr >= cpu->display.menu_start && addr < cpu->display.menu_end)
     {
       menu_draw_nibble(addr, val);
     }

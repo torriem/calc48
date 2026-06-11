@@ -1460,7 +1460,7 @@ void SDLCreateColors()
 		
 	// Adjust the LCD color according to the contrast
 	int contrast,r,g,b;
-	contrast = display.contrast;
+	contrast = cpu->display.contrast;
 
 	if (contrast < 0x3) contrast = 0x3;
 	if (contrast > 0x13) contrast = 0x13;
