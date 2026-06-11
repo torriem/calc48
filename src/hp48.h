@@ -275,10 +275,8 @@ typedef struct saturn_t {
 
 /* disp_buf, lcd_buffer are now hp48_t members (see hp48_state.h) */
 
-extern int		got_alarm;
-
-/* set_t1, sched_timer1/2, adj_time_pending, sched_adjtime, schedule_event are
- * now hp48_t members (see hp48_state.h) */
+/* got_alarm, set_t1, sched_timer1/2, adj_time_pending, sched_adjtime,
+ * schedule_event are now hp48_t members (see hp48_state.h) */
 
 /* `display` is now an hp48_t member, accessed as cpu->display (not bridged
  * by macro: the name collides with an SDL_video.h parameter) */

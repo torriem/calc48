@@ -33,8 +33,7 @@
 #define ROM_SIZE_SX 0x080000
 #define ROM_SIZE_GX 0x100000
 
-extern unsigned int opt_gx;
-extern unsigned int rom_size;
+/* opt_gx, rom_size are now hp48_t members (see hp48_state.h) */
 
 extern int read_rom_file __ProtoType__((char *name,
                                         unsigned char **mem,

@@ -79,6 +79,17 @@ typedef struct hp48_t {
   word_64 set_0_time;
   word_64 time_offset;
 
+  /* --- interrupt / keyboard / bank-switch (actions.c) --- */
+  int interrupt_called;
+  int got_alarm;
+  int first_press;
+  int conf_bank1;
+  int conf_bank2;
+
+  /* --- ROM identity (romio.c) --- */
+  unsigned int opt_gx;
+  unsigned int rom_size;
+
 } hp48_t;
 
 /*
@@ -153,6 +164,17 @@ extern hp48_t *cpu;
 #define systime_offset        (cpu->systime_offset)
 #define set_0_time            (cpu->set_0_time)
 #define time_offset           (cpu->time_offset)
+
+/* interrupt / keyboard / bank-switch (actions.c) */
+#define interrupt_called      (cpu->interrupt_called)
+#define got_alarm             (cpu->got_alarm)
+#define first_press           (cpu->first_press)
+#define conf_bank1            (cpu->conf_bank1)
+#define conf_bank2            (cpu->conf_bank2)
+
+/* ROM identity (romio.c) */
+#define opt_gx                (cpu->opt_gx)
+#define rom_size              (cpu->rom_size)
 
 #endif /* !HP48_STATE_NO_BRIDGE */
 

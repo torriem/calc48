@@ -99,13 +99,11 @@
 #include "debugger.h"
 #include "romio.h"
 
-static int	interrupt_called = 0;
 extern long	nibble_masks[16];
 
-int		got_alarm;
-int             first_press = 1;			// PATCH
-int		conf_bank1 = 0x00000;
-int		conf_bank2 = 0x00000;
+/* interrupt_called, got_alarm, first_press, conf_bank1, conf_bank2 are now
+ * hp48_t members (see hp48_state.h); first_press's initial value of 1 is set
+ * in context.c. */
 
 void
 #ifdef __FunctionProto__

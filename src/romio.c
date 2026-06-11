@@ -33,9 +33,9 @@
 #include "global.h"
 #include "resources.h"
 #include "romio.h"
+#include "hp48.h"   /* opt_gx, rom_size are now hp48_t members */
 
-unsigned int opt_gx = 0;
-unsigned int rom_size = 0;
+/* opt_gx, rom_size are now hp48_t members (see hp48_state.h) */
 
 int
 #ifdef __FunctionProto__
