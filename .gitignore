@@ -1,0 +1,7 @@
+# CMake out-of-source build directory
+/build/
+
+# In-tree build artifacts (legacy Makefile)
+*.o
+*.d
+*.exe
