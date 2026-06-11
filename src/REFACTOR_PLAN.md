@@ -376,7 +376,18 @@ Phase 2 deferred item).
   create/get_lcd/press/release/destroy with no SDL.
   Still wanted: interactive verification of the SDL app (render + key response)
   on a display.
-- **Phase 5 — not started.**
+- **Phase 5 — done.** Persistence API with explicit paths (`hp48_load_rom`,
+  `hp48_init_from_rom`, `hp48_load_state`, `hp48_save_state`) by giving
+  `read_files`/`write_files`/`get_home_directory` a directory argument (SDL app
+  unchanged, passes `homeDirectory`) and fixing `read_rom()` to use its `fname`
+  argument. Added `hp48_display_init()` so pull-based headless hosts get a live
+  LCD (update_display gates on `disp.mapped`, which only the SDL window set).
+  `libhp48` now builds both STATIC (`libhp48.a`) and SHARED (`libhp48.so`,
+  versioned, PIC, depends only on libc). `examples/hp48.py` (ctypes) drives the
+  whole API and renders the LCD as terminal ASCII -- verified against a real
+  `~/.hp48` state, showing the live stack display with no SDL.
+  Note: the Python example is headless (terminal output), not a GUI; a windowed
+  demo (pygame / Qt) would be a follow-up.
 
 ## Notes
 
