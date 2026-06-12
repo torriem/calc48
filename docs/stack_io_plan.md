@@ -96,28 +96,60 @@ document the packing.
 
 ## Phase W — WRITE / push (later, separate effort)
 
-Pushing is far more invasive than reading: the object **body** must live in RAM
-the RPL memory manager owns, so a correct push must
-1. allocate space in **TEMPOB** (move the system free pointer; respect GC),
+Pushing is the hard direction, because the object **body** must live in RAM the
+RPL memory manager owns: a correct push has to place the object, grow the stack
+array, move `DSKTOP`, and keep the free / `TEMPOB` / `AVMEM` pointers
+consistent. Two ways to do that, taken in this order.
+
+### W1. Offline / whole-image edit  *(recommended)*
+
+Edit the RAM while the emulator is **not running**, then boot it. This removes
+the worst part of a live push — atomicity. With RAM frozen, every pointer
+update lands before any instruction executes, so RPL never sees a half-built
+state and the GC can't corrupt it. It is deterministic and needs no safe-point
+hunting.
+
+It does *not* remove the need for the memory map (the `TEMPOB`/free/`AVMEM`
+addresses) or the object-size logic (R2) — offline makes a push *safe*, not
+*free*.
+
+The clean shape, given that RAM is already a host-supplied blob:
+- **Host-side tool (preferred):** a separate program (e.g. Python) that reads
+  the `ram` + `hp48` resources, edits the stack in the bytes, and writes them
+  back — then the emulator boots them normally. No running emulator, no new C
+  in the hot path; a pure data transform over the same files `hp48_io_t` moves.
+- **In-process variant:** the same edit done in C in the window between
+  `hp48_load_state()` and `hp48_start()`, where `saturn.ram` is loaded and
+  quiescent.
+
+Prefer **parse -> modify -> re-serialize the whole image** over surgical poking:
+read the saved RAM into a model (stack levels, TEMPOB objects, free region),
+append the object, and write RAM back with all affected pointers recomputed.
+Owning the whole layout is far easier to get correct than not disturbing a live
+one. Requires the snapshot to be a clean idle state (saved states are — they're
+written at the outer loop) and is ROM-version specific (key off `opt_gx`).
+
+### W2. Live push  *(only if injecting into a running calc)*
+
+Do the allocation + pointer fixups on a running instance at a safe point (calc
+idle at the outer loop, between `run_slice` calls):
+1. allocate space in `TEMPOB` (move the free pointer; respect GC),
 2. write the object nibbles there,
 3. decrement `DSKTOP` by 5 and store the new object's address in the new slot,
-4. keep `TEMPTOP`/free, `AVMEM`, etc. consistent,
-and do it at a safe point. The emulator does not currently track the
-TEMPOB/free pointers.
+4. keep `TEMPTOP`/free, `AVMEM`, etc. consistent.
+Higher risk than W1 because the updates must be atomic relative to execution.
+Lower-risk live alternatives that reuse the calc's own allocator: inject as a
+**global variable** (store into a directory) and recall it, or
+**keyboard/command-line injection** (type text + ENTER via `hp48_press_key`).
 
-Prep tasks for later:
-- Locate the SX/GX addresses of the memory-manager pointers (TEMPOB, free /
-  TEMPTOP, AVMEM) — same system-RAM tables that give DSKTOP/DSKBOT.
-- Decide the mechanism:
-  - direct push (implement the allocation + pointer fixups), or
-  - inject as a **global variable** (store into a directory) and let RPL recall
-    it, or
-  - **keyboard/command-line injection** (type text + ENTER via
-    `hp48_press_key`) — slowest but uses the calc's own allocator, zero risk.
-- Build a `rpl_object_size()` (R2) first; WRITE needs object lengths too.
+### Shared prerequisites (both paths)
+- Locate the SX/GX addresses of the memory-manager pointers (`TEMPOB`, free /
+  `TEMPTOP`, `AVMEM`) — same system-RAM tables that give `DSKTOP`/`DSKBOT`.
+- Build `rpl_object_size()` (R2) first; WRITE needs object lengths too.
 
 ## Notes
-- All new code is core (`libcalc48`), instance-aware via the `cpu` bridge; no
-  SDL dependency.
+- All new core code is in `libcalc48`, instance-aware via the `cpu` bridge; no
+  SDL dependency. The W1 host-side tool needs no core changes at all.
 - READ is high-value / low-risk and unblocks inspection and serialization;
-  WRITE is gated on mapping the memory manager and is best done as its own pass.
+  WRITE is gated on mapping the memory manager and is best done as its own pass,
+  with the offline (W1) approach preferred.
