@@ -42,7 +42,7 @@ hp48_t *cpu = &default_instance;
 
 /*
  *  Program name used in core diagnostic messages.  Owned by the core so that
- *  libhp48 links standalone; the front end may overwrite it (e.g. from argv).
+ *  libcalc48 links standalone; the front end may overwrite it (e.g. from argv).
  */
 char *progname = "x48";
 

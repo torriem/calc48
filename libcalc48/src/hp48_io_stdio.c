@@ -1,5 +1,5 @@
 /*
- *  Bundled stdio storage provider for libhp48.
+ *  Bundled stdio storage provider for libcalc48.
  *
  *  This is the *default* implementation of the hp48_io_t storage interface for
  *  desktop platforms: it backs each resource ("rom", "hp48", "ram", "port1",

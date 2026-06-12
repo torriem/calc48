@@ -2,7 +2,7 @@
  *  UI / rendering interface for the emulator core (Phase 3 of
  *  REFACTOR_PLAN.md).
  *
- *  The emulator core (libhp48) must not depend on SDL -- or on any particular
+ *  The emulator core (libcalc48) must not depend on SDL -- or on any particular
  *  UI toolkit -- so everything the core needs from the front end is expressed
  *  here as plain-C callbacks.  A front end (the SDL app, a Qt app, a Python
  *  binding, ...) fills in an hp48_ui_t and registers it with hp48_set_ui().

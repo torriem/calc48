@@ -1,7 +1,7 @@
 /*
- *  Headless embedding smoke test for libhp48.
+ *  Headless embedding smoke test for libcalc48.
  *
- *  Links against ONLY the emulator core (libhp48) -- no SDL, no UI -- and
+ *  Links against ONLY the emulator core (libcalc48) -- no SDL, no UI -- and
  *  exercises the Phase 4 public API: create an instance, read the LCD buffer,
  *  drive the key matrix, and destroy.  It does not load a ROM, so it never
  *  runs instructions; its job is to prove the core is a self-contained,
@@ -9,7 +9,7 @@
  *  can link and call without SDL.
  *
  *  Build via the CMake target `hp48_ffi_smoke`, or by hand:
- *      gcc -I src -o ffi_smoke examples/ffi_smoke.c build/libhp48.a
+ *      gcc -I src -o ffi_smoke examples/ffi_smoke.c build/libcalc48.a
  */
 
 #include <stdio.h>

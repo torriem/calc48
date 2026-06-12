@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ctypes binding for libhp48 -- the SDL-free HP48 emulator core.
+ctypes binding for libcalc48 -- the SDL-free HP48 emulator core.
 
 This is a thin, dependency-free wrapper demonstrating that the emulator can be
 driven from Python with no UI toolkit.  Run it directly:
@@ -28,17 +28,17 @@ def _find_lib():
     here = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.environ.get("HP48_LIB"),
-        os.path.join(here, "..", "build", "libhp48.so"),
-        os.path.join(here, "libhp48.so"),
-        "libhp48.so",
+        os.path.join(here, "..", "build", "libcalc48.so"),
+        os.path.join(here, "libcalc48.so"),
+        "libcalc48.so",
     ]
     for c in candidates:
-        if c and (os.path.exists(c) or c == "libhp48.so"):
+        if c and (os.path.exists(c) or c == "libcalc48.so"):
             try:
                 return ctypes.CDLL(c)
             except OSError:
                 continue
-    raise OSError("libhp48.so not found; build it or set HP48_LIB")
+    raise OSError("libcalc48.so not found; build it or set HP48_LIB")
 
 
 class Hp48:

@@ -1,7 +1,7 @@
 /*
  *  Storage interface for the emulator core.
  *
- *  libhp48 performs NO filesystem access of its own.  Every persistent
+ *  libcalc48 performs NO filesystem access of its own.  Every persistent
  *  resource -- the ROM image and the saved-calculator files (hp48, ram,
  *  port1, port2) -- is moved in and out as an opaque byte blob through these
  *  callbacks, which the host (the UI / front end) implements.  This lets the
