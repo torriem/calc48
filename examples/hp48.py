@@ -143,9 +143,9 @@ def main(argv):
     _, rows, stride = emu.lcd_nibbles()
     print("created instance; LCD buffer %dx%d nibbles" % (rows, stride))
 
-    # Basic input check: '1' key (matrix code 0x14), then ON (0x8000).
-    emu.press(0x14)
-    emu.release(0x14)
+    # Basic input check: '1' key (matrix code 0x13; see docs/keymap.md).
+    emu.press(0x13)
+    emu.release(0x13)
     print("pressed/released '1' ok")
 
     if len(argv) > 1:

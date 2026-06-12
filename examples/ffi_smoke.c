@@ -28,10 +28,11 @@ int main(void)
     const unsigned char *lcd = hp48_get_lcd(&rows, &stride);
     printf("create ok; lcd=%p rows=%d stride=%d\n", (const void *)lcd, rows, stride);
 
-    /* '1' key: matrix code 0x14 -> row 1, column bit (1 << 4) = 0x10. */
-    hp48_press_key(0x14);
+    /* '1' key: matrix code 0x13 -> row 1, column bit (1 << 3) = 0x08.
+     * (See docs/keymap.md.) */
+    hp48_press_key(0x13);
     printf("press '1': keybuf row1 = 0x%x\n", saturn.keybuf.rows[1]);
-    hp48_release_key(0x14);
+    hp48_release_key(0x13);
     printf("release '1': keybuf row1 = 0x%x\n", saturn.keybuf.rows[1]);
 
     /* ON key (0x8000) sets bit 15 across all rows. */
