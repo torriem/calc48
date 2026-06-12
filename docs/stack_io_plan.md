@@ -126,8 +126,38 @@ Prefer **parse -> modify -> re-serialize the whole image** over surgical poking:
 read the saved RAM into a model (stack levels, TEMPOB objects, free region),
 append the object, and write RAM back with all affected pointers recomputed.
 Owning the whole layout is far easier to get correct than not disturbing a live
-one. Requires the snapshot to be a clean idle state (saved states are — they're
-written at the outer loop) and is ROM-version specific (key off `opt_gx`).
+one. ROM-version specific (key off `opt_gx`).
+
+#### Validate before edit (precondition, not assumption)
+
+W1 needs a *clean idle* snapshot, but **nothing in the OS stamps an "idle"
+flag** — so don't assume it, check it. The save is taken at a CPU instruction
+boundary (the host loop / `run_slice` cadence), so the image is never
+mid-instruction torn; but it is **not** gated on RPL being idle (the host can
+quit while a program runs). "Saved states are idle" is true in practice, not by
+construction.
+
+Turn it into a checkable precondition. Before editing, run a structural
+validation pass over the image — it reuses the object-sizing logic R2/W1 already
+need, and is cheap:
+- Walk `DSKTOP → DSKBOT`: `depth = (end-sp)/5 - 1` is a sane non-negative
+  integer; every 5-nibble slot points into a valid region.
+- Walk the `TEMPOB` chain + free / `AVMEM` pointers: they partition memory
+  without overlap, and each object's prologue + body length lands exactly on the
+  next boundary (no length runs past `AVMEM`/end).
+
+If those invariants hold, the image is **not torn** (no half-built object, no
+dangling pointer) — which is exactly what makes an offline edit safe. Caveat:
+they hold at *every* RPL instruction boundary, so they prove *consistent*, not
+specifically *idle at the outer loop*.
+
+For a belt-and-suspenders "was idle" heuristic, look at the saved **CPU state**
+(the `hp48` state file, not the `ram` blob — it serializes `PC`, the hardware
+`rstk[]`, etc.): a `PC` parked in the keyboard-wait / `SHUTDN` light-sleep code
+(the emulator's `halted` / `HP48_HALTED` condition) is the cleanest signal the
+calc was idle at the outer loop. The RPL return stack (RAM-resident, distinct
+from the hardware `rstk[]`) depth above baseline is the real "a program is
+running" tell, but reading it needs the same memory-map work as W2.
 
 ### W2. Live push  *(only if injecting into a running calc)*
 
