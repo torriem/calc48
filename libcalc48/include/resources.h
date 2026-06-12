@@ -55,8 +55,7 @@ extern int     throttle;
 extern char   serialLine[];
 extern int     initialize;
 extern int     resetOnStartup;
-extern char   romFileName[];
-extern char   homeDirectory[];
+/* romFileName/homeDirectory moved to the front end (filesystem policy). */
 
 extern char   *progname;
 extern char   *res_name;

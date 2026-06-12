@@ -273,6 +273,10 @@ extern void	ShowConnections	 (char *w, char *i);
 
 extern void	exit_x48	 (int tell_x11);
 
+/* Front-end emulator orchestration (defined in mainsdl.c; path policy). */
+extern int	init_emulator	 (void);
+extern int	exit_emulator	 (void);
+
 
 ///////////////////////////////////////////////
 // SDL PORT

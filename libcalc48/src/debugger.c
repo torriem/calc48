@@ -893,8 +893,7 @@ do_quit (int argc, char **argv)
   if (confirm ("Quit the emulator and save its state?"))
     {
       printf ("Exit.\n");
-      exit_emulator ();
-      //XCloseDisplay(dpy);  
+      write_files ();        /* save via the installed storage provider */
       exit (0);
     }
 }

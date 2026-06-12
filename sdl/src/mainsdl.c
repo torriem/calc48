@@ -71,6 +71,8 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <pwd.h>
 #include <fcntl.h>
 
 #include "x48_sdl.h"
@@ -93,6 +95,77 @@ char  *res_class;
 
 int    saved_argc;
 char **saved_argv;
+
+/*
+ *  Filesystem policy is the front end's, not the library's.  These buffers are
+ *  owned here and live for the whole process, so they safely outlive the
+ *  emulator: the stdio storage provider keeps a pointer to homedir (via
+ *  hp48_io_t.user), and the bootstrap ROM is loaded from rompath.
+ */
+static char homedir[1024];   /* state directory, e.g. ~/.hp48           */
+static char rompath[1024];   /* bootstrap ROM, e.g. <exe-dir>/rom        */
+
+/* Resolve the state directory ($HOME/.hp48) and the bootstrap ROM path. */
+static void
+setup_paths(void)
+{
+  char          *home;
+  struct passwd *pwd;
+  int            rv;
+  char          *slash;
+
+#ifdef PLATFORMWEBOS
+  strcpy(homedir, "/media/internal/hp48");
+#else
+  if ((home = getenv("HOME")) != NULL)
+    snprintf(homedir, sizeof(homedir), "%s/.hp48", home);
+  else if ((pwd = getpwuid(getuid())) != NULL)
+    snprintf(homedir, sizeof(homedir), "%s/.hp48", pwd->pw_dir);
+  else
+    strcpy(homedir, "/tmp/.hp48");
+#endif
+
+  /* Bootstrap ROM: assume one sits next to the executable (Linux/Cygwin). */
+  rv = readlink("/proc/self/exe", rompath, sizeof(rompath) - 1);
+  if (rv > 0 && rv < (int)sizeof(rompath))
+    {
+      rompath[rv] = 0;
+      if ((slash = strrchr(rompath, '/')) != NULL)
+        *slash = 0;
+      strcat(rompath, "/rom");
+    }
+  else
+    strcpy(rompath, "rom.dump");
+
+  printf("homedir: %s\n", homedir);
+  printf("rompath: %s\n", rompath);
+}
+
+/*
+ *  Load the saved calculator from homedir; failing that, boot fresh from the
+ *  ROM at rompath.  (Was init_emulator() in the core; it is path policy, so it
+ *  belongs to the front end.)  Returns 0 on success.
+ */
+int
+init_emulator(void)
+{
+  if (!initialize && hp48_load_state(homedir) == 0)
+    {
+      if (resetOnStartup)
+        saturn.PC = 0x00000;
+      return 0;
+    }
+
+  return hp48_init_from_rom(rompath);
+}
+
+/* Save the calculator state back to homedir (called from exit_x48). */
+int
+exit_emulator(void)
+{
+  hp48_save_state(homedir);
+  return 1;
+}
 
 void
 signal_handler(int sig)
@@ -175,8 +248,10 @@ main(int argc, char **argv)
 	
 	// Global parameter initialization
 	get_resources();
-	
-	
+
+	// Resolve the state directory and bootstrap ROM path (front-end policy)
+	setup_paths();
+
 	setlocale(LC_ALL, "C");
 	
 	name = (char *)0;

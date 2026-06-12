@@ -285,8 +285,8 @@ extern void		init_display (void);
 
 /* `saturn` is now a member of hp48_t, reached via the bridge in hp48_state.h */
 
-extern int		exit_emulator (void);
-extern int		init_emulator (void);
+/* init_emulator/exit_emulator are filesystem/path orchestration and live in
+ * the front end now (sdl/mainsdl.c). */
 extern void		init_active_stuff (void);
 
 extern int		serial_init (void);

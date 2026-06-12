@@ -75,8 +75,8 @@ int	netbook;
 int	throttle;
 int     initialize;
 int     resetOnStartup;
-char   romFileName[1024];
-char   homeDirectory[1024];
+/* romFileName/homeDirectory are filesystem policy and live in the front end
+ * (the storage provider is told the directory explicitly); see sdl/mainsdl.c. */
 
 void
 get_resources(void)
@@ -97,46 +97,10 @@ get_resources(void)
   //initialize=0;
   initialize=0;
   resetOnStartup=0;
-  
-	// There are two directories that can contain files:
-	// homeDirectory:		Directory in which the live files (hp state, ram, but also a copy of the rom) are stored
-	//							homeDirectory is the first directory in which x48 attempts to load the emulator data
-	//							It is also in homeDirectory that state files are saved
-	// romFileName:		if loading files from homeDirectory fails, the emulator instead initializes the state and ram from scratch, and attempts
-	//							to load the ROM romFileName. This is just for bootstrapping: afterwards then the emulator will save the state to homeDirectory
-	
-	// Have homeDirectory in the user's home
-#ifdef PLATFORMWEBOS
-	strcpy(homeDirectory,"/media/internal/hp48");
-#else
-	strcpy(homeDirectory,".hp48");				// live files are stored in ~/.hp48
-#endif
-	
-	
 
-	// As a fallback, assume that a ROM will be available at the same location as the executable
-	// We assume that the rom file is in the same 
-	int rv;
-	rv = readlink("/proc/self/exe", romFileName, sizeof(romFileName));	// Find the full path name of the executable (this is linux/cygwin only)
-	if(rv>0 && rv<sizeof(romFileName))
-	{
-		// If found...
-		romFileName[rv]=0;
-		// find the last slash and terminate
-		char *slash = strrchr(romFileName,'/');
-		*slash=0;
-		// append the name of the rom file
-		strcat(romFileName,"/rom");
-		
-	}
-	else
-	{
-		// Couldn't find path to executable... just use some default
-		strcpy(romFileName,"rom.dump");
-	}
-	
-	printf("homeDirectory: %s\n",homeDirectory);
-	printf("romFileName: %s\n",romFileName);
+	/* The state directory and bootstrap ROM path are filesystem policy: the
+	 * front end resolves and owns them, and hands the directory to the storage
+	 * provider (see sdl/mainsdl.c). */
 
 	useDebugger=1;
 	disassembler_mode=CLASS_MNEMONICS; // HP_MNEMONICS
