@@ -312,6 +312,90 @@ Phase 2 deferred item).
   rom/state -> set_ui (or get_lcd) -> run_slice -> press_key -> save_state.
 - The SDL front end becomes just one client of the same API.
 
+### Phase 6 — Portable serial interface (host-provided transport)
+
+Mirror the storage refactor (`hp48_io_t`) for the UART. Today the core's serial
+emulation is split between *register behavior* (portable) and *transport* (not):
+
+- **Register behavior** — `RCS`/`TCS`/`RBR`/`TBR`, status bits, and
+  interrupt raising — is memory-mapped IO in `memory.c` plus the logic in
+  `serial.c` (`transmit_char`/`receive_char`), driven from `device.c`,
+  `emulate.c`, `actions.c`. This is clean, instance-aware, and stays in the core.
+- **Transport** — the actual "wire" — is the non-portable part: `serial_init()`
+  opens a host **pseudo-terminal** (`/dev/ptmx`, `grantpt`/`unlockpt`/`ptsname_r`,
+  with BSD/IRIX/Solaris variants) and `transmit_char`/`receive_char` do raw
+  `open()`/`read()`/`write()`/`select()` on `wire_fd`/`ir_fd`. It also still
+  references frontend globals (`progname`, `verbose`, `useTerminal`). This is the
+  last host-syscall dependency in the core and won't build on Android / a pure-Qt
+  target.
+
+#### Callback interface
+
+Add `hp48_serial_t` (new `libcalc48/include/hp48_serial.h`), stored on `hp48_t`,
+installed via `hp48_set_serial()` — modeled exactly on `hp48_io_t`/`hp48_ui_t`,
+NULL-guarded so a headless host with no serial simply has the wire "unplugged"
+(the UART reports no device, as `wire_fd == -1` does now). Byte-stream oriented,
+since that is all `transmit_char`/`receive_char` need:
+
+```c
+typedef struct hp48_serial_t {
+  /* channel: 0 = wire, 1 = IR (selected by saturn.ir_ctrl & 0x04) */
+  int  (*open)(void *user, int channel);            /* >=0 ok, <0 unplugged */
+  void (*configure)(void *user, int channel, int baud);
+  int  (*read)(void *user, int channel,             /* NON-blocking; returns  */
+               unsigned char *buf, int max);        /* n>=0, 0 = none ready   */
+  int  (*write)(void *user, int channel,            /* returns n written, or  */
+                const unsigned char *buf, int n);   /* <0 = error/would-block */
+  void (*close)(void *user, int channel);
+  void *user;
+} hp48_serial_t;
+```
+
+Only the transport moves behind this boundary; the register emulation and
+interrupt logic in the core are unchanged. `serial.c` stops calling
+`open`/`read`/`write`/`select` directly and instead calls `cpu->serial.*`,
+keeping its non-blocking contract (the core polls from `device.c`/`emulate.c`, so
+`read` must return 0 immediately when nothing is ready — never block). The two
+channels (wire / IR, chosen by `ir_ctrl & 0x04`) become the `channel` argument.
+`baud` is delivered via `configure` (cosmetic for most hosts, real for a PTY).
+
+#### Default (bundled) providers
+
+Like `hp48_io_stdio`, ship optional providers behind a CMake option
+(`HP48_WITH_SERIAL`), so the bare core stays syscall-free:
+
+- **Host serial / PTY provider** (`hp48_serial_pty.c`) — the current `/dev/ptmx`
+  behavior, lifted out of the core into a provider and **de-globalized** (no
+  `progname`/`verbose`/`useTerminal`; name/verbosity passed in or reported back).
+  Also covers connecting to a real host serial device (`/dev/ttyUSB0`, …) by
+  path. This is where today's PTY-naming UI belongs — the frontend already owns
+  the connection display (`show_connections`/`update_connection_display`).
+- **Socket provider** (`hp48_serial_socket.c`) — TCP (listen/connect) and/or
+  Unix-domain sockets. Same callback surface, `select()` on a socket fd instead
+  of a PTY. Enables wiring two emulator instances together, or connecting a host
+  tool (Kermit, a test harness) over the network — handy on platforms with no
+  PTY.
+
+#### Frontend-provided transport
+
+A host that wants a virtual mechanism implements `hp48_serial_t` directly and the
+core never touches an fd: an in-memory pipe between two `hp48_t` instances, a Qt
+`QIODevice`/`QSerialPort`, an Android USB/Bluetooth stream, or a deterministic
+test fixture feeding canned bytes. The SDL front end becomes one such client,
+installing the PTY provider by default (preserving today's behavior).
+
+#### Migration / notes
+
+- Extract transport from `serial.c` into the callback boundary; keep all
+  register/interrupt logic in the core. Replace `serial_init()`'s PTY open with
+  provider install; the frontend (SDL) installs the PTY provider, matching the
+  storage split where the frontend chose the `stdio` provider.
+- Persistence is unaffected: `rcs`/`tcs`/`rbr`/`tbr` are already saved
+  (`init.c`); the transport (fds/sockets) is *not* persisted — the host
+  re-establishes the connection on load, exactly as today.
+- Keep IR vs wire as distinct channels; a provider may support only the wire and
+  return "unplugged" for IR.
+
 ## Progress / status
 
 - **Phase 0 — done.** Pure-C CMake build (no g++), executable `x48`.
@@ -388,6 +472,11 @@ Phase 2 deferred item).
   `~/.hp48` state, showing the live stack display with no SDL.
   Note: the Python example is headless (terminal output), not a GUI; a windowed
   demo (pygame / Qt) would be a follow-up.
+- **Phase 6 — planned (not started).** Portable serial transport via an
+  `hp48_serial_t` callback interface + bundled PTY and socket providers. This is
+  the last host-syscall dependency left in the core (`serial.c`'s direct
+  `open`/`read`/`write`/`select` and its `progname`/`verbose`/`useTerminal`
+  references).
 
 ## Notes
 
