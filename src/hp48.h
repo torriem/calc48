@@ -76,6 +76,7 @@
 
 #include "global.h"
 
+#include <stdio.h>
 #include <sys/time.h>
 
 #include "mmu.h"
@@ -310,9 +311,10 @@ extern int		hp48_check_wakeup (void);
 extern int		step_instruction (void);
 extern void		schedule (void);
 
-extern int              read_rom (const char *fname);
-extern int              read_files (const char *home);
-extern int              write_files (const char *home);
+extern void		init_saturn (void);
+extern int              read_rom (FILE *fp, const char *name);
+extern int              read_files (void);  /* load active instance via cpu->io */
+extern int              write_files (void); /* save active instance via cpu->io */
 
 extern void		load_addr (word_20 *dat, long addr,
 						 int n);

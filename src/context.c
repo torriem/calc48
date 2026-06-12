@@ -54,6 +54,14 @@ hp48_set_ui(const hp48_ui_t *ui)
     cpu->ui = *ui;
 }
 
+/* Install the host's storage callbacks on the active instance. */
+void
+hp48_set_io(const hp48_io_t *io)
+{
+  if (io)
+    cpu->io = *io;
+}
+
 /*
  *  Initialise a freshly-allocated instance to the same defaults the static
  *  default_instance carries.  Keep in sync with the initializer above.

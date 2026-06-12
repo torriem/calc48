@@ -22,6 +22,7 @@
 #include "hp48.h"     /* saturn_t, display_t and friends */
 #include "device.h"   /* device_t */
 #include "hp48_ui.h"  /* disp_t, hp48_ui_t (SDL-free UI interface) */
+#include "hp48_io.h"  /* hp48_io_t (SDL-free storage interface) */
 
 typedef struct hp48_t {
 
@@ -103,6 +104,9 @@ typedef struct hp48_t {
   /* --- UI bridge (Phase 3): geometry + front-end callbacks --- */
   disp_t    disp;
   hp48_ui_t ui;
+
+  /* --- storage bridge: host-supplied blob load/save callbacks --- */
+  hp48_io_t io;
 
   /* --- run-loop state (Phase 4) --- */
   int       halted;   /* CPU parked in SHUTDN light-sleep; see hp48_run_slice */

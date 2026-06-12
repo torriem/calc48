@@ -58,6 +58,15 @@ set(FRONTEND_SOURCES
     src/SDL_rotozoom.c
 )
 
+# The core does no filesystem access; the bundled stdio storage provider
+# (hp48_io_stdio.c) is the only part that calls fopen/mkdir, and it is opt-out
+# so a restricted target (Android, iOS, console, WASM) can ship a libhp48 with
+# no filesystem references and install its own hp48_io_t via hp48_set_io().
+option(HP48_WITH_STDIO_IO "Build the bundled stdio file storage provider" ON)
+if(HP48_WITH_STDIO_IO)
+    list(APPEND CORE_SOURCES src/hp48_io_stdio.c)
+endif()
+
 # ---------------------------------------------------------------------------
 # Dependencies
 # ---------------------------------------------------------------------------

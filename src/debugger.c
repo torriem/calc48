@@ -814,7 +814,7 @@ do_load (int argc, char **argv)
       memcpy (&tmp_saturn, &saturn, sizeof (saturn));
       memcpy (&tmp_device, &device, sizeof (device));
       memset (&saturn, 0, sizeof (saturn));
-      if (read_files (homeDirectory))
+      if (read_files ())
 	{
 	  printf ("Loading done.\n");
 	  enter_debugger &= ~ILLEGAL_INSTRUCTION;
@@ -1352,7 +1352,7 @@ do_regs (int argc, char **argv)
 static void
 do_save (int argc, char **argv)
 {
-  if (write_files (homeDirectory))
+  if (write_files ())
     {
       printf ("Saving done.\n");
     }

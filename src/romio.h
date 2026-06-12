@@ -29,13 +29,15 @@
 #define _ROMIO_H 1
 
 #include "global.h"
+#include <stdio.h>   /* FILE */
 
 #define ROM_SIZE_SX 0x080000
 #define ROM_SIZE_GX 0x100000
 
 /* opt_gx, rom_size are now hp48_t members (see hp48_state.h) */
 
-extern int read_rom_file (char *name,
+/* Parse a ROM from an already-open (memory-backed) stream; caller owns fp. */
+extern int read_rom_file (FILE *fp, const char *name,
                                         unsigned char **mem,
                                         int *size);
 

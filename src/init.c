@@ -895,30 +895,27 @@ read_version_0_4_0_file(FILE *fp)
   return 1;
 }
 
+/*
+ *  Unpack a packed-nibble memory image from an already-open (memory-backed)
+ *  stream into `mem` (size nibbles).  The caller owns and closes fp.
+ */
 int
-read_mem_file(char *name, word_4 *mem, int size)
+read_mem_file(FILE *fp, const char *name, word_4 *mem, int size)
 {
-  struct stat st;
-  FILE *fp;
+  long fsize;
   word_8 *tmp_mem;
   word_8 byte;
   int i, j;
 
-  if (NULL == (fp = fopen(name, "r")))
+  if (fseek(fp, 0, SEEK_END) < 0 || (fsize = ftell(fp)) < 0)
     {
       if (!quiet)
-        fprintf(stderr, "%s: can\'t open %s\n", progname, name);
+        fprintf(stderr, "%s: can\'t size %s\n", progname, name);
       return 0;
     }
+  rewind(fp);
 
-  if (stat(name, &st) < 0)
-    {
-      if (!quiet)
-        fprintf(stderr, "%s: can\'t stat %s\n", progname, name);
-      return 0;
-    }
-
-  if (st.st_size == size)
+  if (fsize == size)
     {
       /*
        * size is same as memory size, old version file
@@ -927,7 +924,6 @@ read_mem_file(char *name, word_4 *mem, int size)
         {
           if (!quiet)
             fprintf(stderr, "%s: can\'t read %s\n", progname, name);
-          fclose(fp);
           return 0;
         }
     }
@@ -937,16 +933,15 @@ read_mem_file(char *name, word_4 *mem, int size)
        * size is different, check size and decompress memory
        */
 
-      if (st.st_size != size / 2)
+      if (fsize != size / 2)
         {
           if (!quiet)
             fprintf(stderr, "%s: strange size %s, expected %d, found %ld\n",
-                    progname, name, size / 2, st.st_size);
-          fclose(fp);
+                    progname, name, size / 2, fsize);
           return 0;
         }
 
-      if (NULL == (tmp_mem = (word_8 *)malloc((size_t)st.st_size)))
+      if (NULL == (tmp_mem = (word_8 *)malloc((size_t)fsize)))
         {
           for (i = 0, j = 0; i < size / 2; i++)
             {
@@ -954,7 +949,6 @@ read_mem_file(char *name, word_4 *mem, int size)
                 {
                   if (!quiet)
                     fprintf(stderr, "%s: can\'t read %s\n", progname, name);
-                  fclose(fp);
                   return 0;
                 }
               mem[j++] = (word_4)((int)byte & 0xf);
@@ -967,7 +961,6 @@ read_mem_file(char *name, word_4 *mem, int size)
             {
               if (!quiet)
                 fprintf(stderr, "%s: can\'t read %s\n", progname, name);
-              fclose(fp);
               free(tmp_mem);
               return 0;
             }
@@ -977,12 +970,10 @@ read_mem_file(char *name, word_4 *mem, int size)
               mem[j++] = (word_4)((int)tmp_mem[i] & 0xf);
               mem[j++] = (word_4)(((int)tmp_mem[i] >> 4) & 0xf);
             }
-    
+
           free(tmp_mem);
         }
     }
-
-  fclose(fp);
 
   if (verbose)
     printf("%s: read %s\n", progname, name);
@@ -990,13 +981,67 @@ read_mem_file(char *name, word_4 *mem, int size)
   return 1;
 }
 
+/* ----------------------------------------------------------------------- */
+/* Blob bridge: obtain/emit resources via the host's storage callbacks      */
+/* (hp48_io.h), wrapping the byte buffers as in-memory streams so the        */
+/* existing FILE*-based (de)serializers are reused unchanged.  The core does */
+/* no filesystem access of its own.                                          */
+/* ----------------------------------------------------------------------- */
+typedef struct { FILE *fp; unsigned char *data; size_t len; } blob_r;
+
+/* Open resource `name` for reading. Returns 1 on success (and fills *r), 0 if
+ * absent/unavailable. blob_read_close() must be called on success. */
+static int
+blob_read_open(blob_r *r, const char *name)
+{
+  r->fp = NULL; r->data = NULL; r->len = 0;
+  if (!cpu->io.load)
+    return 0;
+  if (cpu->io.load(cpu->io.user, name, &r->data, &r->len) != 0 || r->data == NULL)
+    return 0;
+  r->fp = fmemopen(r->data, r->len, "rb");
+  return r->fp != NULL;
+}
+
+static void
+blob_read_close(blob_r *r)
+{
+  if (r->fp)   fclose(r->fp);
+  if (r->data) free(r->data);
+  r->fp = NULL; r->data = NULL;
+}
+
+typedef struct { FILE *fp; char *buf; size_t len; const char *name; } blob_w;
+
+/* Open an in-memory stream to build resource `name`; commit hands it to the
+ * host's save callback. Returns the FILE* (NULL on failure). */
+static FILE *
+blob_write_open(blob_w *w, const char *name)
+{
+  w->buf = NULL; w->len = 0; w->name = name;
+  w->fp = open_memstream(&w->buf, &w->len);
+  return w->fp;
+}
+
+static int
+blob_write_commit(blob_w *w)
+{
+  int rc = -1;
+  if (w->fp) { fclose(w->fp); w->fp = NULL; }
+  if (cpu->io.save)
+    rc = cpu->io.save(cpu->io.user, w->name, (unsigned char *)w->buf, w->len);
+  if (w->buf) free(w->buf);
+  w->buf = NULL;
+  return rc;
+}
+
 // Return: 1=success 0=failure
 int
-read_rom(const char *fname)
+read_rom(FILE *fp, const char *name)
 {
   int ram_size;
 
-  if (!read_rom_file((char *)fname, &saturn.rom, (int*)&rom_size))
+  if (!read_rom_file(fp, name, &saturn.rom, (int*)&rom_size))
     return 0;
   dev_memory_init();
 
@@ -1029,46 +1074,11 @@ read_rom(const char *fname)
   return 1;
 }
 
-void
-get_home_directory(char *path, const char *home)
-{
-  char          *p;
-  struct passwd *pwd;
+/* get_home_directory(), init_emulator/exit_emulator and the path-based
+ * load/save conveniences moved to the optional stdio storage provider
+ * (hp48_io_stdio.c); the core does no filesystem access. */
 
-  if (home[0] == '/')
-    {
-      strcpy(path, home);
-    }
-  else
-    {
-      p = getenv("HOME");
-      if (p)
-        {
-          strcpy(path, p);
-          strcat(path, "/");
-        }
-      else
-        {
-          pwd = getpwuid(getuid());
-          if (pwd)
-            {
-              strcpy(path, pwd->pw_dir);
-              strcat(path, "/");
-            }
-          else
-            {
-              if (!quiet)
-                fprintf(stderr,
-                    "%s: can\'t figure out your home directory, trying /tmp\n",
-                    progname);
-              strcpy(path, "/tmp");
-            }
-        }
-      strcat(path, home);
-    }
-}
-
-// Return: 
+// Return:
 // 0:ok
 // -1: read rom failed
 // -2: read hp48 failed
@@ -1076,38 +1086,34 @@ get_home_directory(char *path, const char *home)
 // -4: can't open ram
 // -5: can't parse ram
 int
-read_files(const char *home)
+read_files(void)
 {
-  char           path[1024];
-  char           fnam[1024];
+  blob_r         r;
   unsigned long  v1, v2;
   int            i, read_version;
   int            ram_size;
-  struct stat    st;
   FILE          *fp;
 
-  get_home_directory(path, home);
-  strcat(path, "/");
-
+  /* --- ROM --- */
   saturn.rom = (word_4 *)NULL;
-  strcpy(fnam, path);
-  strcat(fnam, "rom");
-  if (!read_rom_file(fnam, &saturn.rom, (int*)&rom_size))
+  if (!blob_read_open(&r, HP48_RES_ROM))
     return -1;
+  if (!read_rom_file(r.fp, HP48_RES_ROM, &saturn.rom, (int*)&rom_size))
+    {
+      blob_read_close(&r);
+      return -1;
+    }
+  blob_read_close(&r);
 
   rom_is_new = 0;
 
-  strcpy(fnam, path);
-  strcat(fnam, "hp48");
-  if (NULL == (fp = fopen(fnam, "r")))
-    {
-      if (!quiet)
-        fprintf(stderr, "%s: can\'t open %s\n", progname, fnam);
-      return -2;
-    }
+  /* --- saturn state (hp48) --- */
+  if (!blob_read_open(&r, HP48_RES_STATE))
+    return -2;
+  fp = r.fp;
 
   /*
-   * ok, file is open, try to read the MAGIC number
+   * try to read the MAGIC number
    */
   read_u_long(fp, &saturn.magic);
 
@@ -1124,8 +1130,8 @@ read_files(const char *home)
          */
         copy_old_saturn(&old_saturn, &saturn);
         if (!quiet)
-          fprintf(stderr, "%s: %s seems to be an old version file\n",
-                  progname, fnam);
+          fprintf(stderr, "%s: hp48 seems to be an old version file\n",
+                  progname);
         saturn.magic = X48_MAGIC;
         saturn.t1_tick = 8192;
         saturn.t2_tick = 16;
@@ -1139,7 +1145,7 @@ read_files(const char *home)
          * no, initialize
          */
         if (!quiet)
-          fprintf(stderr, "%s: can\'t handle %s\n", progname, fnam);
+          fprintf(stderr, "%s: can\'t handle hp48 state\n", progname);
         init_saturn();
       }
     } else {
@@ -1154,7 +1160,7 @@ read_files(const char *home)
           read_version = 0;
         }
       }
-      
+
     if (read_version) {
         v1 = ((int)saturn.version[0] & 0xff) << 24;
         v1 |= ((int)saturn.version[1] & 0xff) << 16;
@@ -1164,19 +1170,7 @@ read_files(const char *home)
         v2 |= ((int)VERSION_MINOR & 0xff) << 16;
         v2 |= ((int)PATCHLEVEL & 0xff) << 8;
         v2 |= ((int)COMPILE_VERSION & 0xff);
-  
-        if ((v1 & 0xffffff00) < (v2 & 0xffffff00)) {
-          if (!quiet)
-            fprintf(stderr, "%s: %s is a version %d.%d.%d file, converting\n",
-                    progname, fnam,
-                    saturn.version[0], saturn.version[1], saturn.version[2]);
-        } else if ((v2 & 0xffffff00) < (v1 & 0xffffff00)) {
-          if (!quiet)
-            fprintf(stderr, "%s: %s is a version %d.%d.%d file, trying ...\n",
-                    progname, fnam,
-                    saturn.version[0], saturn.version[1], saturn.version[2]);
-        }
-    
+
         if (v1 < 0x00040000)
           {
             /*
@@ -1185,53 +1179,34 @@ read_files(const char *home)
             if (!read_version_0_3_0_file(fp))
               {
                 if (!quiet)
-                  fprintf(stderr, "%s: can\'t handle %s\n", progname, fnam);
+                  fprintf(stderr, "%s: can\'t handle hp48 state\n", progname);
                 init_saturn();
               }
             else
               {
                 copy_0_3_0_saturn(&saturn_0_3_0, &saturn);
-                if (verbose)
-                  printf("%s: read %s\n", progname, fnam);
               }
           }
-        else if (v1 <= v2) {
+        else {
           /*
            * read latest version file
            */
           if (!read_version_0_4_0_file(fp))
             {
               if (!quiet)
-                fprintf(stderr, "%s: can\'t handle %s\n", progname, fnam);
+                fprintf(stderr, "%s: can\'t handle hp48 state\n", progname);
               init_saturn();
-            }
-          else if (verbose)
-            {
-              printf("%s: read %s\n", progname, fnam);
-            }
-        } else {
-          /*
-           * try to read latest version file
-           */
-          if (!read_version_0_4_0_file(fp))
-            {
-              if (!quiet)
-                fprintf(stderr, "%s: can\'t handle %s\n", progname, fnam);
-              init_saturn();
-            }
-          else if (verbose)
-            {
-              printf("%s: read %s\n", progname, fnam);
             }
         }
       }
     }
-  fclose(fp);
+  blob_read_close(&r);
 
   dev_memory_init();
 
   saturn_config_init();
 
+  /* --- RAM --- */
   if (opt_gx)
     ram_size = RAM_SIZE_GX;
   else
@@ -1246,28 +1221,31 @@ read_files(const char *home)
       return -3;
     }
 
-  strcpy(fnam, path);
-  strcat(fnam, "ram");
-  if ((fp = fopen(fnam, "r")) == NULL) {
-    if (!quiet)
-      fprintf(stderr, "%s: can\'t open %s\n", progname, fnam);
+  if (!blob_read_open(&r, HP48_RES_RAM))
     return -4;
-  }
-  if (!read_mem_file(fnam, saturn.ram, ram_size))
-    return -5;
+  if (!read_mem_file(r.fp, HP48_RES_RAM, saturn.ram, ram_size))
+    {
+      blob_read_close(&r);
+      return -5;
+    }
+  blob_read_close(&r);
 
   saturn.card_status = 0;
 
+  /*
+   * Plug-in ports (optional).  Loaded via the storage callback as opaque
+   * blobs; their byte length gives the card size.  Whether a card is RAM or
+   * ROM was historically taken from the file's write permission -- not
+   * conveyable through a byte blob -- so a loaded port is treated as RAM.
+   */
   port1_size = 0;
   port1_mask = 0;
   port1_is_ram = 0;
   saturn.port1 = (unsigned char *)0;
 
-  strcpy(fnam, path);
-  strcat(fnam, "port1");
-  if (stat(fnam, &st) >= 0)
+  if (blob_read_open(&r, HP48_RES_PORT1))
     {
-      port1_size = 2 * st.st_size;
+      port1_size = 2 * (long)r.len;
       if ((port1_size == 0x10000) || (port1_size == 0x40000))
         {
           if (NULL == (saturn.port1 = (word_4 *)malloc(port1_size)))
@@ -1275,18 +1253,22 @@ read_files(const char *home)
               if (!quiet)
                 fprintf(stderr, "%s: can\'t malloc PORT1[%ld]\n",
                         progname, port1_size);
+              port1_size = 0;
             }
-          else if (!read_mem_file(fnam, saturn.port1, port1_size))
+          else if (!read_mem_file(r.fp, HP48_RES_PORT1, saturn.port1, port1_size))
             {
               port1_size = 0;
               port1_is_ram = 0;
             }
           else
             {
-              port1_is_ram = (st.st_mode & S_IWUSR) ? 1 : 0;
+              port1_is_ram = 1;
               port1_mask = port1_size - 1;
             }
         }
+      else
+        port1_size = 0;
+      blob_read_close(&r);
     }
 
   if (opt_gx)
@@ -1305,11 +1287,9 @@ read_files(const char *home)
   port2_is_ram = 0;
   saturn.port2 = (unsigned char *)0;
 
-  strcpy(fnam, path);
-  strcat(fnam, "port2");
-  if (stat(fnam, &st) >= 0)
+  if (blob_read_open(&r, HP48_RES_PORT2))
     {
-      port2_size = 2 * st.st_size;
+      port2_size = 2 * (long)r.len;
       if ((opt_gx && ((port2_size % 0x40000) == 0)) ||
           (!opt_gx && ((port2_size == 0x10000) || (port2_size == 0x40000))))
         {
@@ -1318,18 +1298,22 @@ read_files(const char *home)
               if (!quiet)
                 fprintf(stderr, "%s: can\'t malloc PORT2[%ld]\n",
                         progname, port2_size);
+              port2_size = 0;
             }
-          else if (!read_mem_file(fnam, saturn.port2, port2_size))
+          else if (!read_mem_file(r.fp, HP48_RES_PORT2, saturn.port2, port2_size))
             {
               port2_size = 0;
               port2_is_ram = 0;
             }
           else
             {
-              port2_is_ram = (st.st_mode & S_IWUSR) ? 1 : 0;
+              port2_is_ram = 1;
               port2_mask = port2_size - 1;
             }
         }
+      else
+        port2_size = 0;
+      blob_read_close(&r);
     }
 
   if (opt_gx)
@@ -1424,19 +1408,15 @@ write_u_long(FILE *fp, unsigned long *var)
 }
 
 int
-write_mem_file(char *name, word_4 *mem, int size)
+/*
+ *  Pack a nibble memory image into an already-open (memory-backed) stream.
+ *  The caller owns and closes fp.
+ */
+write_mem_file(FILE *fp, const char *name, word_4 *mem, int size)
 {
-  FILE *fp;
   word_8 *tmp_mem;
   word_8 byte;
   int i, j;
-
-  if (NULL == (fp = fopen(name, "w")))
-    {
-      if (!quiet)
-        fprintf(stderr, "%s: can\'t open %s\n", progname, name);
-      return 0;
-    }
 
   if (NULL == (tmp_mem = (word_8 *)malloc((size_t)size / 2)))
     {
@@ -1448,7 +1428,6 @@ write_mem_file(char *name, word_4 *mem, int size)
             {
               if (!quiet)
                 fprintf(stderr, "%s: can\'t write %s\n", progname, name);
-              fclose(fp);
               return 0;
             }
         }
@@ -1465,15 +1444,12 @@ write_mem_file(char *name, word_4 *mem, int size)
         {
           if (!quiet)
             fprintf(stderr, "%s: can\'t write %s\n", progname, name);
-          fclose(fp);
           free(tmp_mem);
           return 0;
        }
 
        free(tmp_mem);
     }
-
-  fclose(fp);
 
   if (verbose)
     printf("%s: wrote %s\n", progname, name);
@@ -1483,68 +1459,19 @@ write_mem_file(char *name, word_4 *mem, int size)
 
 
 int
-write_files(const char *home)
+write_files(void)
 {
-  char path[1024];
-  char fnam[1024];
-  struct stat st;
-  int i, make_dir;
+  blob_w w;
+  int i;
   int ram_size;
   FILE *fp;
 
-  make_dir = 0;
-  get_home_directory(path, home);
-
-  if (stat(path, &st) == -1)
-    {
-      if (errno == ENOENT)
-        {
-          make_dir = 1;
-        }
-      else
-        {
-          if (!quiet)
-            fprintf(stderr, "%s: can\'t stat %s, saving to /tmp\n",
-                    progname, path);
-          strcpy(path, "/tmp");
-        }
-    }
-  else
-    {
-      if (!S_ISDIR(st.st_mode))
-        {
-          if (!quiet)
-            fprintf(stderr, "%s: %s is no directory, saving to /tmp\n",
-                    progname, path);
-          strcpy(path, "/tmp");
-        }
-    }
-
-  if (make_dir)
-    {
-      if (mkdir(path, 0777) == -1)
-        {
-          if (!quiet)
-            fprintf(stderr, "%s: can\'t mkdir %s, saving to /tmp\n",
-                    progname, path);
-          strcpy(path, "/tmp");
-        }
-    }
-
-  strcat(path, "/");
-
-  strcpy(fnam, path);
-  strcat(fnam, "hp48");
-  if ((fp = fopen(fnam, "w")) == NULL) {
-    if (!quiet)
-      fprintf(stderr, "%s: can\'t open %s, no saving done\n",
-              progname, fnam);
-    return 0;
-  }
-
   /*
-   * write the hp48 config file
+   * write the hp48 state into an in-memory stream, then hand the bytes to the
+   * host's storage callback (see hp48_io.h).
    */
+  if (NULL == (fp = blob_write_open(&w, HP48_RES_STATE)))
+    return 0;
   write_32(fp, (word_32 *)&saturn.magic);
   for (i = 0; i < 4; i++) write_char(fp, &saturn.version[i]);
   for (i = 0; i < 16; i++) write_8(fp, &saturn.A[i]);
@@ -1620,16 +1547,17 @@ write_files(const char *home)
       write_32(fp, &saturn.mem_cntl[i].config[0]);
       write_32(fp, &saturn.mem_cntl[i].config[1]);
     }
-  fclose(fp);
-  if (verbose)
-    printf("%s: wrote %s\n", progname, fnam);
+  if (blob_write_commit(&w) != 0)
+    return 0;
 
+  /* ROM is only persisted if it was freshly created (not loaded). */
   if (rom_is_new)
     {
-      strcpy(fnam, path);
-      strcat(fnam, "rom");
-      if (!write_mem_file(fnam, saturn.rom, rom_size))
-        return 0;
+      if ((fp = blob_write_open(&w, HP48_RES_ROM)) != NULL)
+        {
+          write_mem_file(fp, HP48_RES_ROM, saturn.rom, rom_size);
+          blob_write_commit(&w);
+        }
     }
 
   if (opt_gx)
@@ -1637,25 +1565,28 @@ write_files(const char *home)
   else
     ram_size = RAM_SIZE_SX;
 
-  strcpy(fnam, path);
-  strcat(fnam, "ram");
-  if (!write_mem_file(fnam, saturn.ram, ram_size))
+  if ((fp = blob_write_open(&w, HP48_RES_RAM)) == NULL)
+    return 0;
+  write_mem_file(fp, HP48_RES_RAM, saturn.ram, ram_size);
+  if (blob_write_commit(&w) != 0)
     return 0;
 
   if ((port1_size > 0) && port1_is_ram)
     {
-      strcpy(fnam, path);
-      strcat(fnam, "port1");
-      if (!write_mem_file(fnam, saturn.port1, port1_size))
-        return 0;
+      if ((fp = blob_write_open(&w, HP48_RES_PORT1)) != NULL)
+        {
+          write_mem_file(fp, HP48_RES_PORT1, saturn.port1, port1_size);
+          blob_write_commit(&w);
+        }
     }
 
   if ((port2_size > 0) && port2_is_ram)
     {
-      strcpy(fnam, path);
-      strcat(fnam, "port2");
-      if (!write_mem_file(fnam, saturn.port2, port2_size))
-        return 0;
+      if ((fp = blob_write_open(&w, HP48_RES_PORT2)) != NULL)
+        {
+          write_mem_file(fp, HP48_RES_PORT2, saturn.port2, port2_size);
+          blob_write_commit(&w);
+        }
     }
 
   return 1;
@@ -1663,72 +1594,10 @@ write_files(const char *home)
 
 // Return: 0=success, -1=error
 
-int 
-init_emulator(void)
-{
-	
-  if (!initialize)				// not do a complete initialization
-    if (read_files(homeDirectory)==0)		// read_files ok
-      {
-        if (resetOnStartup)
-          saturn.PC = 0x00000;
-        return 0;					// return ok;
-      }
-
-  init_saturn();
-  if (!read_rom(romFileName))
-    return -1;						// return failure
-
-  return 0;							// return ok;
-  return -1;
-}
-
 void
 init_active_stuff(void)
 {
   serial_init();
   init_display();
-}
-
-int
-exit_emulator(void)
-{
-  write_files(homeDirectory);
-  return 1;
-}
-
-/* ----------------------------------------------------------------------- */
-/* Public persistence API (Phase 5): explicit paths, operating on the       */
-/* active instance -- no dependency on the global homeDirectory/romFileName */
-/* resource strings.  All return 0 on success, negative on failure.         */
-/* ----------------------------------------------------------------------- */
-
-/* Load just the ROM image at `path` into the active instance. */
-int
-hp48_load_rom(const char *path)
-{
-  return read_rom_file((char *)path, &saturn.rom, (int *)&rom_size) ? 0 : -1;
-}
-
-/* Fresh boot: initialise CPU state, load the ROM at `path`, zero RAM. */
-int
-hp48_init_from_rom(const char *path)
-{
-  init_saturn();
-  return read_rom(path) ? 0 : -1;
-}
-
-/* Load a saved calculator (rom/hp48/ram/port1/port2) from directory `dir`. */
-int
-hp48_load_state(const char *dir)
-{
-  return read_files(dir);
-}
-
-/* Save the active instance's state (hp48/ram/port1/port2) to `dir`. */
-int
-hp48_save_state(const char *dir)
-{
-  return write_files(dir) ? 0 : -1;
 }
 

@@ -37,64 +37,60 @@
 
 /* opt_gx, rom_size are now hp48_t members (see hp48_state.h) */
 
+/*
+ *  Parse a ROM image from an already-open stream `fp` (memory-backed via the
+ *  host's storage callback; see hp48_io.h).  `name` is used only in messages.
+ *  The caller owns and closes fp.
+ */
 int
-read_rom_file(char *name, unsigned char **mem, int *size)
+read_rom_file(FILE *fp, const char *name, unsigned char **mem, int *size)
 {
-  struct stat st;
-  FILE *fp;
+  long fsize;
   unsigned char *tmp_mem;
   unsigned char byte;
   unsigned char four[4];
   int i, j;
 
-	printf("read_rom_file: %s\n",name);
-
   *mem = NULL;
   *size = 0;
-  if (NULL == (fp = fopen(name, "r")))
-    {
-      fprintf(stderr, "can\'t open %s\n", name);
-      return 0;
-    }
 
-  if (stat(name, &st) < 0)
+  /* Measure the stream instead of stat()ing a file. */
+  if (fseek(fp, 0, SEEK_END) < 0 || (fsize = ftell(fp)) < 0)
     {
-      fprintf(stderr, "can\'t stat %s\n", name);
-      fclose(fp);
+      fprintf(stderr, "can\'t size %s\n", name);
       return 0;
     }
+  rewind(fp);
 
   if (fread(four, 1, 4, fp) != 4)
     {
       fprintf(stderr, "can\'t read first 4 bytes of %s\n", name);
-      fclose(fp);
       return 0;
     }
 
   if (four[0] == 0x02 && four[1] == 0x03 &&
       four[2] == 0x06 && four[3] == 0x09)
     {
-      *size = st.st_size;
+      *size = fsize;
     }
   else if (four[0] == 0x32 && four[1] == 0x96 &&
            four[2] == 0x1b && four[3] == 0x80)
     {
-      *size = 2 * st.st_size;
+      *size = 2 * fsize;
     }
   else if (four[1] = 0x49)
     {
       fprintf(stderr, "%s is an HP49 ROM\n", name);
-      *size = 2 * st.st_size;
+      *size = 2 * fsize;
     }
   else if (four[0])
     {
-      printf("%d\n", st.st_size);
-      *size = st.st_size;
+      printf("%d\n", fsize);
+      *size = fsize;
     }
   else
     {
       fprintf(stderr, "%s is not a HP48 ROM\n", name);
-      fclose(fp);
       return 0;
     }
 
@@ -102,13 +98,12 @@ read_rom_file(char *name, unsigned char **mem, int *size)
     {
       fprintf(stderr, "can\'t fseek to position 0 in %s\n", name);
       *size = 0;
-      fclose(fp);
       return 0;
     }
 
   *mem = (unsigned char *)malloc(*size);
 
-  if (st.st_size == *size)
+  if (fsize == *size)
     {
       /*
        * size is same as memory size, old version file
@@ -119,7 +114,6 @@ read_rom_file(char *name, unsigned char **mem, int *size)
           free(*mem);
           *mem = NULL;
           *size = 0;
-          fclose(fp);
           return 0;
         }
     }
@@ -129,18 +123,17 @@ read_rom_file(char *name, unsigned char **mem, int *size)
        * size is different, check size and decompress memory
        */
 
-      if (st.st_size != *size / 2)
+      if (fsize != *size / 2)
         {
           fprintf(stderr, "strange size %s, expected %d, found %ld\n",
-                  name, *size / 2, st.st_size);
+                  name, *size / 2, fsize);
           free(*mem);
           *mem = NULL;
           *size = 0;
-          fclose(fp);
           return 0;
         }
 
-      if (NULL == (tmp_mem = (unsigned char *)malloc((size_t)st.st_size)))
+      if (NULL == (tmp_mem = (unsigned char *)malloc((size_t)fsize)))
         {
           for (i = 0, j = 0; i < *size / 2; i++)
             {
@@ -150,7 +143,6 @@ read_rom_file(char *name, unsigned char **mem, int *size)
                   free(*mem);
                   *mem = NULL;
                   *size = 0;
-                  fclose(fp);
                   return 0;
                 }
               (*mem)[j++] = byte & 0xf;
@@ -165,7 +157,6 @@ read_rom_file(char *name, unsigned char **mem, int *size)
               free(*mem);
               *mem = NULL;
               *size = 0;
-              fclose(fp);
               free(tmp_mem);
               return 0;
             }
@@ -180,7 +171,6 @@ read_rom_file(char *name, unsigned char **mem, int *size)
         }
     }
 
-  fclose(fp);
 
   if ((*mem)[0x29] == 0x00)
     {
