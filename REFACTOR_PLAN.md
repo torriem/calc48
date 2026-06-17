@@ -396,6 +396,67 @@ installing the PTY provider by default (preserving today's behavior).
 - Keep IR vs wire as distinct channels; a provider may support only the wire and
   return "unplugged" for IR.
 
+### Phase 7 — Remaining host couplings: clock seam, build options, cleanup
+
+After Phase 6 the only host dependencies left in the core are the wall clock and
+the interactive debugger, plus some dead code. This phase removes them so the
+bare core is pure-C with no host syscalls.
+
+#### Clock seam (the last always-on host dependency)
+
+`timer.c` (~8 sites) and `emulate.c:2423/2444` call `gettimeofday()` directly to
+drive the calculator's real-time clock and pace execution. It is POSIX, so it
+already works on Linux / macOS / **Android (NDK)** — it only fails on **Windows**
+— but it is also a *policy* coupling: an embedder can't feed a virtual or
+deterministic clock (for tests, or to decouple calc time from real time).
+
+Add a one-function time seam, overridable like the other callbacks:
+
+```c
+/* monotonic-ish microseconds; default impl wraps gettimeofday() */
+uint64_t (*now_us)(void *user);   /* on hp48_t, or a settable global hook */
+```
+
+- Default provider uses `gettimeofday()` (a Windows impl can use
+  `QueryPerformanceCounter`/`GetSystemTimeAsFileTime` without touching the core).
+- Route all `timer.c`/`emulate.c` time reads through it; keep the existing tick
+  math. The calculator clock then tracks whatever the host returns, enabling
+  deterministic tests and virtual time.
+- Drop the SOLARIS/SUNOS `extern int gettimeofday` re-declarations
+  (`timer.c:68/71`) — K&R leftovers.
+
+#### Core build options (compile out non-embeddable parts)
+
+Mirror `HP48_WITH_STDIO_IO`, so the embeddable core carries nothing it doesn't
+need:
+
+- **`HP48_WITH_DEBUGGER`** (default ON) — the interactive debugger (`debugger.c`)
+  reads commands from stdin (`read()` on fd 0 via `read_str`, `debugger.c:352`,
+  with `HAVE_READLINE`/`SUNOS`/`SIMPLE_64` ifdefs). It is terminal-bound and a
+  singleton dev tool an Android/Qt embed never wants. Gate it so it can be
+  compiled out entirely; the breakpoint hook (`hp48_debug_check`) becomes a
+  no-op when absent.
+
+#### Dead-code / leftover cleanup
+
+- **Audio beeper** (`device.c:181–204`): `check_out_register()` opens
+  `/dev/audio` and `write()`s — but the whole block is `#if 0`, so it is not
+  compiled. Delete it. Note this also means **sound is not emulated** (the
+  `OUT[2]` beeper bit is dropped); if wanted later it belongs as a `hp48_ui_t`-
+  style callback, never a `/dev/audio` open.
+- **Stale includes** (`init.c`): still includes `<unistd.h>`, `<sys/stat.h>`,
+  `<pwd.h>` though `getpwuid`/`getenv`/`stat`/`mkdir` moved to the frontend /
+  stdio provider when path policy was split out. Remove them (`pwd.h` is itself
+  non-portable).
+
+#### Outcome
+
+With the clock seam in place and the debugger gated off, the core
+(`HP48_WITH_STDIO_IO=OFF`, `HP48_WITH_SERIAL=OFF`, `HP48_WITH_DEBUGGER=OFF`) has
+**no host syscalls at all** — all host interaction (storage, serial, time,
+rendering) flows through the callback tables, which is the end state this refactor
+has been driving toward.
+
 ## Progress / status
 
 - **Phase 0 — done.** Pure-C CMake build (no g++), executable `x48`.
@@ -477,6 +538,13 @@ installing the PTY provider by default (preserving today's behavior).
   the last host-syscall dependency left in the core (`serial.c`'s direct
   `open`/`read`/`write`/`select` and its `progname`/`verbose`/`useTerminal`
   references).
+- **Phase 7 — planned (not started).** Remove the remaining host couplings: a
+  `now_us` clock seam over `gettimeofday()` (the last always-on dependency;
+  enables Windows + virtual/deterministic time), a `HP48_WITH_DEBUGGER` build
+  option to compile out the stdin-bound debugger, and dead-code cleanup (the
+  `#if 0` `/dev/audio` beeper in `device.c`, stale `pwd.h`/`unistd.h`/`sys/stat.h`
+  includes in `init.c`). End state: core with all `HP48_WITH_*` off has no host
+  syscalls.
 
 ## Notes
 
