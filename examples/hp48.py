@@ -10,8 +10,9 @@ driven from Python with no UI toolkit.  Run it directly:
 
 The second form loads a saved state directory (the same rom/hp48/ram/port*
 files the SDL app uses), runs the emulator cooperatively for a moment, and
-prints the LCD as ASCII -- the host owns the loop, exactly like a Qt QTimer
-would.
+prints the LCD using Unicode braille (2x4 dots per character) -- the host owns
+the loop, exactly like a Qt QTimer would.  (lcd_ascii() is also available for
+plain '#' output.)
 """
 
 import ctypes
@@ -212,6 +213,36 @@ class Hp48:
             lines.append("".join(chars).rstrip())
         return "\n".join(lines)
 
+    def lcd_braille(self, width_px=131):
+        """Render the LCD with Unicode braille.
+
+        Each braille glyph (U+2800..U+28FF) packs a 2x4 dot grid, so it shows 8
+        pixels per character -- the densest text rendering available.  The whole
+        131x64 LCD collapses to ~66x16 characters at roughly true aspect ratio.
+        Needs a UTF-8 terminal and a font with braille glyphs (most have them).
+        """
+        buf, rows, stride = self.lcd_nibbles()
+
+        def on(x, y):
+            if not (0 <= x < width_px and 0 <= y < rows):
+                return 0
+            return (buf[y * stride + (x >> 2)] >> (x & 3)) & 1
+
+        # Braille dot bit for (row dy 0..3, col dx 0..1), added to U+2800.
+        dot = ((0x01, 0x08), (0x02, 0x10), (0x04, 0x20), (0x40, 0x80))
+        lines = []
+        for y0 in range(0, rows, 4):
+            cells = []
+            for x0 in range(0, width_px, 2):
+                bits = 0
+                for dy in range(4):
+                    for dx in range(2):
+                        if on(x0 + dx, y0 + dy):
+                            bits |= dot[dy][dx]
+                cells.append(chr(0x2800 + bits))
+            lines.append("".join(cells).rstrip("\u2800"))  # trim blank (U+2800) cells
+        return "\n".join(lines)
+
 
 def main(argv):
     emu = Hp48()
@@ -235,8 +266,8 @@ def main(argv):
             for _ in range(50):              # 50 x 20ms = ~1s, host owns loop
                 if emu.run_slice(20000) == HP48_DEBUG:
                     break
-            print("LCD:")
-            print(emu.lcd_ascii())
+            print("LCD (braille, 2x4 dots/char):")
+            print(emu.lcd_braille())
 
             stk = emu.stack()
             if stk:
