@@ -192,27 +192,130 @@ calc was idle at the outer loop. The RPL return stack (RAM-resident, distinct
 from the hardware `rstk[]`) depth above baseline is the real "a program is
 running" tell, but reading it needs the same memory-map work as W2.
 
-### W2. Live push  *(only if injecting into a running calc)*
+### W2. Live push  *(GX-only; the droid48 recipe)*
 
-Do the allocation + pointer fixups on a running instance at a safe point (calc
-idle at the outer loop, between `run_slice` calls):
-1. allocate space in `TEMPOB` (move the free pointer; respect GC),
-2. write the object nibbles there,
-3. decrement `DSKTOP` by 5 and store the new object's address in the new slot,
-4. keep `TEMPTOP`/free, `AVMEM`, etc. consistent.
-Higher risk than W1 because the updates must be atomic relative to execution.
-Lower-risk live alternatives that reuse the calc's own allocator: inject as a
-**global variable** (store into a directory) and recall it, or
-**keyboard/command-line injection** (type text + ENTER via `hp48_press_key`).
+droid48's `binio.c` proves a live push is tractable and hands us the exact
+mechanism (`RPL_CreateTemp` + `RPL_Push`). Port both into `rplstack.c` behind the
+same `HP48_GX_ONLY` gate as the read API, then expose a push entry point.
 
-### Shared prerequisites (both paths)
-- Locate the SX/GX addresses of the memory-manager pointers (`TEMPOB`, free /
-  `TEMPTOP`, `AVMEM`) — same system-RAM tables that give `DSKTOP`/`DSKBOT`.
-- Build `rpl_object_size()` (R2) first; WRITE needs object lengths too.
+#### Memory layout this relies on (GX)
+
+The five manager pointers are consecutive 5-nibble slots; `AVMEM` is separate.
+Their *values* partition user RAM in increasing address (verified by reading
+them and by `RPL_CreateTemp`'s arithmetic):
+
+```
+... TEMPOB objects ...[TEMPTOP] return stack [RSKTOP] free gap [DSKTOP] data-stack ptr array [DSKBOT]
+```
+
+| pointer | GX addr | holds |
+|---|---|---|
+| `TEMPOB`  | `0x806E9` | start of the temporary-object area |
+| `TEMPTOP` | `0x806EE` | end of the top temp object (= start of return stack) |
+| `RSKTOP`  | `0x806F3` | end of the return stack (= start of the free gap) |
+| `DSKTOP`  | `0x806F8` | top of the data stack (level-1 pointer slot) |
+| `DSKBOT`  | `0x806FD` | just past the bottom of the data stack |
+| `AVMEM`   | `0x807ED` | free memory in 5-nibble units |
+
+**Key insight (why no pointer fixups are needed):** the new object is inserted
+at the *top* of TEMPOB (at the old `[TEMPTOP]`), and only the **return stack** is
+slid up to make room. No existing temp object moves, so every existing stack
+pointer stays valid; and the return-stack entries are absolute addresses, so
+relocating the block doesn't change their meaning. This is what makes the push
+safe without walking and rewriting pointers.
+
+#### W2.1 Constants + helpers
+- Add `TEMPOB_GX`/`TEMPTOP_GX`/`RSKTOP_GX`/`AVMEM_GX` to `rpl.h` (GX values
+  above; `DSKTOP_GX`/`DSKBOT_GX` already there).
+- We already have `read_packed` (rplstack.c) and `store_n` (writes a nibble
+  buffer). Add `write_packed(addr, value, n)` — the `Write5` equivalent (write
+  `n` nibbles LSB-first via `write_nibble`).
+- `rpl_object_size()` (R2) is done.
+
+#### W2.2 Port `RPL_CreateTemp` as `rpl_alloc_temp(int nibbles) -> addr`
+1. `total = nibbles + 6`  (1 marker nibble + 5-nibble length/link field).
+2. `a = read5(TEMPTOP); b = read5(RSKTOP); c = read5(DSKTOP)`.
+3. if `b + total > c` → **out of memory**, return 0 (no GC; see caveats).
+4. `write5(TEMPTOP, a+total); write5(RSKTOP, b+total)`.
+5. `write5(AVMEM, (c - b - total) / 5)`.
+6. Relocate the return stack: copy nibbles `[a, b)` → `[a+total, b+total)`. The
+   ranges overlap (moving up by `total`), so copy via a scratch buffer (as binio
+   does) or copy high→low; do **not** use a naive low→high `store_n`.
+7. `write5(a+total-5, total)`  (the object's trailing length field).
+8. return `a+1`  (object base = where the prologue goes).
+
+#### W2.3 Port `RPL_Push` as `rpl_push(addr)`
+1. `avmem = read5(AVMEM)`; if `avmem == 0` → fail; `avmem--`; `write5(AVMEM, avmem)`.
+2. `stkp = read5(DSKTOP); stkp -= 5; write5(stkp, addr); write5(DSKTOP, stkp)`.
+
+(Use only the non-METAKERNEL path; the `#if 0` METAKERNEL branch is HP49.)
+
+#### W2.4 Public API
+```c
+/* Push a complete RPL object (raw nibbles, prologue first, length `n`) onto
+   stack level 1. 0 on success, <0 on failure (OOM / non-GX / bad object). */
+int hp48_stack_push_object(const unsigned char *obj, int n);
+```
+Implementation: sanity-check `n` against the object's own prologue/length via the
+R2 sizer; `addr = rpl_alloc_temp(n)`; if 0 fail; `store_n(addr, obj, n)`;
+`rpl_push(addr)`. Optional conveniences built on top: `hp48_push_real(double)`,
+`hp48_push_string(bytes,len)` (binio shows the string wrapper: `DOCSTR` prologue
+`0x02A2C`, 5-nibble length, then data).
+
+#### W2.5 Atomicity, safe point, mapping
+- Call only between `hp48_run_slice()` calls (calc idle). Because the CPU does
+  not run during the call, the whole alloc+push is atomic by construction — no
+  interrupt or GC can observe a half-built state. This is the entire atomicity
+  story, and it is why this is far less scary than it first looks.
+- Force the GX RAM bank mapping for the whole operation (same `map_gx_ram` the
+  read path uses) and restore it after, so `read_nibble`/`write_nibble` resolve
+  the absolute system addresses.
+- **Bonus — free offline push:** running these same primitives in the window
+  between `hp48_load_state()` and `hp48_start()` *is* the safe "in-process W1"
+  edit (CPU not started yet). So W2's code also delivers the recommended offline
+  path with no extra machinery.
+
+#### W2.6 Caveats / limitations (inherited from binio)
+- **No garbage collection.** A push fails if the contiguous free gap
+  `[RSKTOP, DSKTOP)` is too small, even when a GC would free enough. First cut
+  mirrors this (clean OOM return); a fuller version would invoke the calc's GC
+  first (harder — out of scope for v1).
+- **GX-only.** Addresses are hard-coded; SX needs `TEMPTOP/RSKTOP/AVMEM_SX`, and
+  the SX `AVMEM` address is still unknown. Gate under `HP48_GX_ONLY`; guard on
+  `opt_gx` and fail safe otherwise.
+- **Display lag.** The stack display refreshes on the calc's next interaction;
+  the host may want to nudge it (e.g. a harmless key) after pushing.
+- **No aliasing.** The pushed object is a fresh TEMPOB copy (unlike a `DUP`'d
+  pointer).
+
+#### W2.7 Validation
+- Round-trip: read an object off the stack with the Phase R API, push it back,
+  run a slice, and confirm `hp48_stack_depth()` grew by one and
+  `hp48_stack_describe(1, ...)` decodes the same value.
+- Robustness: after pushing, drive a few key ops (or run longer) and confirm no
+  crash / GC fault — i.e. `AVMEM` and the manager pointers stayed consistent.
+
+#### Lower-risk alternatives (no manager surgery)
+If touching the manager pointers feels too risky, reuse the calc's *own*
+allocator instead: inject as a **global variable** (store into a directory and
+recall), or do **keyboard/command-line injection** (type the object's text form
++ ENTER via `hp48_press_key`). Slower and less general, but they can't corrupt
+the heap.
+
+### Shared prerequisites
+- **GX manager addresses: known** (table above, from droid48). SX still needs its
+  `TEMPTOP`/`RSKTOP`/`AVMEM` — the first two are derivable as the consecutive
+  slots before `DSKTOP_SX`, but SX `AVMEM` needs a real lookup.
+- `rpl_object_size()` (R2) — **done** (`rplstack.c`); WRITE reuses it to size the
+  incoming object.
 
 ## Notes
 - All new core code is in `libcalc48`, instance-aware via the `cpu` bridge; no
   SDL dependency. The W1 host-side tool needs no core changes at all.
-- READ is high-value / low-risk and unblocks inspection and serialization;
-  WRITE is gated on mapping the memory manager and is best done as its own pass,
-  with the offline (W1) approach preferred.
+- READ is **done** (`rplstack.c`, behind `HP48_GX_ONLY`). WRITE is now fully
+  specified (W2): the droid48 recipe ports directly, the GX addresses are known,
+  and R2's sizer is in place — the only genuinely open item for GX is choosing
+  whether v1 handles GC (it need not). The same W2 primitives, run before
+  `hp48_start()`, also give the safe offline (W1) push for free.
+- Build the WRITE primitives in the same `HP48_GX_ONLY` module as the read API;
+  guard on `opt_gx` and fail safe on non-GX.
