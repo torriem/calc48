@@ -95,16 +95,7 @@ int exec_flags = 0;
 static int continue_flag;
 static char instr[100];
 
-/*
- * Pointers in the HP48sx ROM
- */
-#define DSKTOP_SX	0x70579
-#define DSKBOT_SX	0x7057e
-/*
- * Pointers in the HP48gx ROM
- */
-#define DSKTOP_GX	0x806f8
-#define DSKBOT_GX	0x806fd
+/* DSKTOP_SX/GX, DSKBOT_SX/GX now live in rpl.h (shared with rplstack.c). */
 
 /*
  * Breakpoint related stuff

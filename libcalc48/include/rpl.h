@@ -46,6 +46,15 @@
 #define ROMPTAB_SX	0x707d9
 #define ROMPTAB_GX	0x809a3
 
+/*
+ * RPL data-stack pointers in system RAM ([DSKTOP] -> stack-pointer array,
+ * [DSKBOT] -> just past the bottom; depth = ([DSKBOT]-[DSKTOP])/5 - 1).
+ */
+#define DSKTOP_SX	0x70579
+#define DSKBOT_SX	0x7057e
+#define DSKTOP_GX	0x806f8
+#define DSKBOT_GX	0x806fd
+
 
 /*
  * Object Prologs

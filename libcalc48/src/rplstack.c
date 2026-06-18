@@ -19,12 +19,8 @@
 
 #include "hp48.h"        /* word_20, saturn / opt_gx bridge, load_addr */
 #include "hp48_emu.h"    /* read_nibble */
-#include "rpl.h"         /* prologue constants, decode_rpl_obj_2 */
+#include "rpl.h"         /* prologue constants, DSKTOP_GX/DSKBOT_GX, decode */
 #include "hp48_rpl.h"
-
-/* GX system-RAM pointers to the data stack (same values debugger.c uses). */
-#define DSKTOP_GX  0x806f8
-#define DSKBOT_GX  0x806fd
 
 /* Standard GX RAM bank mapping; mem_cntl[1] selects which 256K window is RAM. */
 #define GX_RAM_BASE  0x80000
