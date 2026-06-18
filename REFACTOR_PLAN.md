@@ -398,9 +398,12 @@ installing the PTY provider by default (preserving today's behavior).
 
 ### Phase 7 — Remaining host couplings: clock seam, build options, cleanup
 
+**Status: done.** Clock seam (`hp48_now_timeval`/`hp48_set_clock`), the
+`HP48_WITH_DEBUGGER` option (+ `debugger_stub.c`), the dead-code removal, and a
+legacy-platform purge are all in. See the accurate end-state under *Outcome*.
+
 After Phase 6 the only host dependencies left in the core are the wall clock and
-the interactive debugger, plus some dead code. This phase removes them so the
-bare core is pure-C with no host syscalls.
+the interactive debugger, plus some dead code. This phase removes/abstracts them.
 
 #### Clock seam (the last always-on host dependency)
 
@@ -448,14 +451,38 @@ need:
   `<pwd.h>` though `getpwuid`/`getenv`/`stat`/`mkdir` moved to the frontend /
   stdio provider when path policy was split out. Remove them (`pwd.h` is itself
   non-portable).
+- **Legacy-platform purge** (done in this phase): drop the SunOS/Solaris/HP-UX/
+  IRIX detection in `global.h`, the `SYSV_TIME`/`__sgi` timezone path in
+  `timer.c` (use `tm_gmtoff`), the `#ifdef SUNOS #include <memory.h>` blocks
+  (`string.h` suffices), and collapse the per-OS PTY ladder in
+  `hp48_serial_pty.c` to one `posix_openpt` path. libcalc48 now targets modern
+  POSIX (Linux/BSD/macOS) + MinGW only.
 
 #### Outcome
 
-With the clock seam in place and the debugger gated off, the core
-(`HP48_WITH_STDIO_IO=OFF`, `HP48_WITH_SERIAL=OFF`, `HP48_WITH_DEBUGGER=OFF`) has
-**no host syscalls at all** — all host interaction (storage, serial, time,
-rendering) flows through the callback tables, which is the end state this refactor
-has been driving toward.
+With everything off (`HP48_WITH_STDIO_IO=OFF`, `HP48_WITH_SERIAL=OFF`,
+`HP48_WITH_DEBUGGER=OFF`, `HP48_WITH_STACK_IO=OFF`) the core has **no filesystem
+access, no serial host I/O, and no stdin/debugger** — storage, serial, and
+rendering all flow through the callback tables. Verified by `nm` on the resulting
+`libcalc48.a`: no `fopen`/`open`/`mkdir`/`stat`, no `socket`/`ptmx`/`termios`, no
+`read_str`.
+
+Two host dependencies remain by design, and are *not* "syscalls into the kernel
+for I/O" so much as libc calls:
+- **The clock.** `gettimeofday`/`time`/`localtime` still back the default
+  `hp48_now_timeval`. They're overridable via `hp48_set_clock()` (a host without
+  `gettimeofday`, e.g. MSVC Windows, installs a microsecond hook), but the
+  default fallback still references them; `time`/`localtime` (timezone offset)
+  are standard C and present everywhere.
+- **In-memory state serialization.** `read_files`/`write_files` use
+  `fmemopen`/`open_memstream` + `fread`/`fwrite` to (de)serialize the saturn
+  state to/from the host-supplied blobs. These are libc *memory* streams — no
+  filesystem — but are POSIX-2008/glibc (also on Android/macOS; an MSVC build
+  would need a small shim).
+
+So the accurate end state is: **no filesystem, serial, or terminal I/O in the
+core; the only host couplings left are the (overridable) clock and libc memory
+streams.** That is the decoupling this refactor was driving toward.
 
 ## Progress / status
 
@@ -547,13 +574,16 @@ has been driving toward.
   FFI smoke) clean; the socket provider round-trips RX/TX over TCP loopback
   through the real `receive_char`/`transmit_char`; `examples/hp48.py` still boots
   `~/.hp48` and renders the LCD.
-- **Phase 7 — planned (not started).** Remove the remaining host couplings: a
-  `now_us` clock seam over `gettimeofday()` (the last always-on dependency;
-  enables Windows + virtual/deterministic time), a `HP48_WITH_DEBUGGER` build
-  option to compile out the stdin-bound debugger, and dead-code cleanup (the
-  `#if 0` `/dev/audio` beeper in `device.c`, stale `pwd.h`/`unistd.h`/`sys/stat.h`
-  includes in `init.c`). End state: core with all `HP48_WITH_*` off has no host
-  syscalls.
+- **Phase 7 — done.** Clock seam `hp48_now_timeval()` over `gettimeofday()`,
+  overridable with `hp48_set_clock(now_us, user)` (Windows / virtual time);
+  `HP48_WITH_DEBUGGER` option (default ON) compiling out the stdin debugger in
+  favour of an inert `debugger_stub.c`; dead-code removal (the `#if 0`
+  `/dev/audio` beeper, stale `init.c` includes); and a legacy-platform purge
+  (SunOS/Solaris/HP-UX/IRIX detection, `SYSV_TIME` timezone path, `<memory.h>`
+  blocks, and the per-OS PTY ladder → one `posix_openpt`). End state: with all
+  `HP48_WITH_*` off the core has no filesystem, serial, or terminal I/O; the only
+  remaining host couplings are the overridable clock and libc memory streams
+  (`fmemopen`/`open_memstream`) for state serialization.
 
 ## Notes
 
