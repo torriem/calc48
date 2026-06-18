@@ -7,10 +7,10 @@
  *  the plug-in ports.  They are read-only and side-effect free; call them at a
  *  safe point (the calc idle, between hp48_run_slice() calls), not mid-run.
  *
- *  GX ONLY.  The stack and memory-manager pointers this uses are hard-coded for
- *  the HP 48 G/GX, so the module is built only when the library is configured
- *  for a GX target (CMake HP48_GX_ONLY).  On a non-GX instance the calls fail
- *  safe (depth 0 / -1).  See docs/stack_io_plan.md.
+ *  SX and GX are both supported, selected at runtime from the loaded ROM
+ *  (opt_gx).  HP49 is not supported; on an HP49 instance the calls fail safe
+ *  (depth 0 / -1).  The module is built behind CMake HP48_WITH_STACK_IO (on by
+ *  default).  See docs/stack_io_plan.md.
  *
  *  Addresses are absolute Saturn nibble addresses (20-bit).  "Nibble buffers"
  *  are one nibble per byte (low nibble used), matching the lcd / memory

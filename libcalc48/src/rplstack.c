@@ -1,16 +1,19 @@
 /*
- *  RPL user-stack read API (Phase R of docs/stack_io_plan.md).
+ *  RPL user-stack read/write API (Phases R + W2 of docs/stack_io_plan.md).
  *
- *  Reads objects off the calculator's RPL user stack -- a way to get data out
- *  of the emulator besides the plug-in ports.  Read-only and side-effect free
- *  (it saves/restores the RAM bank mapping it forces).  Built only in a GX-only
- *  configuration (CMake HP48_GX_ONLY); the stack and object-sizing logic here is
- *  hard-coded for the HP 48 G/GX.  On a non-GX instance the entry points fail
- *  safe.
+ *  Reads objects off, and pushes objects onto, the calculator's RPL user stack
+ *  -- a way to move data in/out of the emulator besides the plug-in ports.  The
+ *  read side is side-effect free; both save/restore the RAM bank mapping they
+ *  force.  Call at a safe point (the calc idle, between hp48_run_slice() calls).
  *
- *  Much of the object traversal is ported from droid48's binio.c
- *  (RPL_ObjectSize); the nibble accessors (load_addr / read_nibble) and the
- *  prologue constants (rpl.h) are libcalc48's own.  See docs/stack_io_plan.md.
+ *  SX and GX are both supported and selected at runtime from `opt_gx` (set from
+ *  the loaded ROM); HP49 (opt_gx >= 2) is not supported and the entry points
+ *  fail safe.  Built behind the HP48_WITH_STACK_IO option.
+ *
+ *  Much of the traversal/allocation is ported from droid48's binio.c
+ *  (RPL_ObjectSize / RPL_CreateTemp / RPL_Push); the nibble accessors
+ *  (load_addr / read_nibble / write_nibbles) and the prologue + manager-pointer
+ *  constants (rpl.h) are libcalc48's own.  See docs/stack_io_plan.md.
  */
 
 #include <stdint.h>
@@ -22,30 +25,56 @@
 #include "rpl.h"         /* prologue + manager-pointer constants, decode */
 #include "hp48_rpl.h"
 
-/* Standard GX RAM bank mapping; mem_cntl[1] selects which 256K window is RAM. */
-#define GX_RAM_BASE  0x80000
-#define GX_RAM_MASK  0xc0000
-
 /* Guard against runaway recursion on corrupt data. */
 #define RPL_MAX_DEPTH  256
 
 /*
- *  Force the known GX RAM mapping so absolute system addresses resolve through
- *  read_nibble regardless of the calc's current bank state, then restore it.
- *  (Proven approach borrowed from debugger.c's do_stack; harmless because we
- *  always restore.)
+ *  Per-model memory map: the data-stack and memory-manager pointer addresses,
+ *  plus the RAM bank window mem_cntl[1] must select for those absolute system
+ *  addresses to resolve.  Selected at runtime by opt_gx.
+ */
+typedef struct {
+  word_20 dsktop, dskbot, tempob, temptop, rsktop, avmem;
+  word_20 ram_base, ram_mask;
+} rpl_map_t;
+
+static const rpl_map_t MAP_SX = {
+  DSKTOP_SX, DSKBOT_SX, TEMPOB_SX, TEMPTOP_SX, RSKTOP_SX, AVMEM_SX,
+  0x70000, 0xf0000
+};
+static const rpl_map_t MAP_GX = {
+  DSKTOP_GX, DSKBOT_GX, TEMPOB_GX, TEMPTOP_GX, RSKTOP_GX, AVMEM_GX,
+  0x80000, 0xc0000
+};
+
+/* The map for the active instance, or NULL if the model is unsupported (HP49). */
+static const rpl_map_t *
+rpl_map(void)
+{
+  if (opt_gx == 1)
+    return &MAP_GX;
+  if (opt_gx == 0)
+    return &MAP_SX;
+  return NULL;                 /* opt_gx >= 2: HP49, not supported */
+}
+
+/*
+ *  Force the model's RAM bank mapping so absolute system addresses resolve
+ *  through read_nibble/write_nibble regardless of the calc's current bank state,
+ *  then restore it.  (Proven approach borrowed from debugger.c's do_stack;
+ *  harmless because we always restore.)
  */
 static void
-map_gx_ram(word_20 *save_base, word_20 *save_mask)
+map_ram(const rpl_map_t *m, word_20 *save_base, word_20 *save_mask)
 {
   *save_base = saturn.mem_cntl[1].config[0];
   *save_mask = saturn.mem_cntl[1].config[1];
-  saturn.mem_cntl[1].config[0] = GX_RAM_BASE;
-  saturn.mem_cntl[1].config[1] = GX_RAM_MASK;
+  saturn.mem_cntl[1].config[0] = m->ram_base;
+  saturn.mem_cntl[1].config[1] = m->ram_mask;
 }
 
 static void
-unmap_gx_ram(word_20 save_base, word_20 save_mask)
+unmap_ram(word_20 save_base, word_20 save_mask)
 {
   saturn.mem_cntl[1].config[0] = save_base;
   saturn.mem_cntl[1].config[1] = save_mask;
@@ -160,16 +189,17 @@ obj_size(word_20 addr, int depth)
 int
 hp48_stack_depth(void)
 {
+  const rpl_map_t *m = rpl_map();
   word_20 base, mask, sp = 0, end = 0;
   int n;
 
-  if (!opt_gx)
+  if (!m)
     return 0;
 
-  map_gx_ram(&base, &mask);
-  load_addr(&sp, DSKTOP_GX, 5);
-  load_addr(&end, DSKBOT_GX, 5);
-  unmap_gx_ram(base, mask);
+  map_ram(m, &base, &mask);
+  load_addr(&sp, m->dsktop, 5);
+  load_addr(&end, m->dskbot, 5);
+  unmap_ram(base, mask);
 
   if (end <= sp)
     return 0;
@@ -180,22 +210,23 @@ hp48_stack_depth(void)
 uint32_t
 hp48_stack_addr(int level)
 {
+  const rpl_map_t *m = rpl_map();
   word_20 base, mask, sp = 0, end = 0, ent = 0;
   int depth;
 
-  if (!opt_gx || level < 1)
+  if (!m || level < 1)
     return 0;
 
-  map_gx_ram(&base, &mask);
-  load_addr(&sp, DSKTOP_GX, 5);
-  load_addr(&end, DSKBOT_GX, 5);
+  map_ram(m, &base, &mask);
+  load_addr(&sp, m->dsktop, 5);
+  load_addr(&end, m->dskbot, 5);
   if (end > sp)
     {
       depth = (int)((end - sp) / 5) - 1;
       if (level <= depth)                       /* level 1 = top (at sp) */
         load_addr(&ent, sp + 5 * (level - 1), 5);
     }
-  unmap_gx_ram(base, mask);
+  unmap_ram(base, mask);
 
   return (uint32_t)ent;
 }
@@ -203,42 +234,45 @@ hp48_stack_addr(int level)
 uint32_t
 hp48_object_prolog(uint32_t addr)
 {
+  const rpl_map_t *m = rpl_map();
   word_20 base, mask, prolog;
 
-  if (!opt_gx)
+  if (!m)
     return 0;
 
-  map_gx_ram(&base, &mask);
+  map_ram(m, &base, &mask);
   prolog = read_packed((word_20)addr, 5);
-  unmap_gx_ram(base, mask);
+  unmap_ram(base, mask);
   return (uint32_t)prolog;
 }
 
 int
 hp48_object_size(uint32_t addr)
 {
+  const rpl_map_t *m = rpl_map();
   word_20 base, mask;
   int sz;
 
-  if (!opt_gx)
+  if (!m)
     return -1;
 
-  map_gx_ram(&base, &mask);
+  map_ram(m, &base, &mask);
   sz = obj_size((word_20)addr, 0);
-  unmap_gx_ram(base, mask);
+  unmap_ram(base, mask);
   return sz;
 }
 
 int
 hp48_read_object(uint32_t addr, unsigned char *out, int max)
 {
+  const rpl_map_t *m = rpl_map();
   word_20 base, mask;
   int sz, i, ncopy;
 
-  if (!opt_gx || !out)
+  if (!m || !out)
     return -1;
 
-  map_gx_ram(&base, &mask);
+  map_ram(m, &base, &mask);
   sz = obj_size((word_20)addr, 0);
   if (sz > 0)
     {
@@ -246,19 +280,20 @@ hp48_read_object(uint32_t addr, unsigned char *out, int max)
       for (i = 0; i < ncopy; i++)
         out[i] = (unsigned char)(read_nibble((word_20)addr + i) & 0x0f);
     }
-  unmap_gx_ram(base, mask);
+  unmap_ram(base, mask);
   return sz;
 }
 
 int
 hp48_stack_describe(int level, char *out, int max)
 {
+  const rpl_map_t *m = rpl_map();
   uint32_t addr;
   word_20 base, mask;
   char *typ, *dat;
   int len;
 
-  if (!out || max <= 0)
+  if (!m || !out || max <= 0)
     return -1;
 
   addr = hp48_stack_addr(level);    /* maps/unmaps internally; 0 if bad level */
@@ -274,9 +309,9 @@ hp48_stack_describe(int level, char *out, int max)
       return -1;
     }
 
-  map_gx_ram(&base, &mask);
+  map_ram(m, &base, &mask);
   decode_rpl_obj_2((word_20)addr, typ, dat);
-  unmap_gx_ram(base, mask);
+  unmap_ram(base, mask);
 
   len = snprintf(out, (size_t)max, "[%s] %s", typ, dat);
   free(typ);
@@ -291,10 +326,10 @@ hp48_stack_describe(int level, char *out, int max)
  *  the new (uninitialised) object, or 0 on failure.  Ported from RPL_CreateTemp:
  *  the chunk is carved at the top of TEMPOB and the return stack is slid up to
  *  make room, so no existing object moves and no stack pointers need fixing.
- *  Caller must already hold the forced GX RAM mapping.
+ *  Caller must already hold the forced RAM mapping for `m`.
  */
 static word_20
-rpl_alloc_temp(int nibbles)
+rpl_alloc_temp(const rpl_map_t *m, int nibbles)
 {
   word_20 a, b, c, total, blocklen;
   unsigned char *buf = NULL;
@@ -303,9 +338,9 @@ rpl_alloc_temp(int nibbles)
     return 0;
   total = (word_20)nibbles + 6;          /* + 5-nibble length field + 1 marker */
 
-  a = read_packed(TEMPTOP_GX, 5);        /* end of top temp object        */
-  b = read_packed(RSKTOP_GX, 5);         /* end of return stack           */
-  c = read_packed(DSKTOP_GX, 5);         /* top of data stack             */
+  a = read_packed(m->temptop, 5);        /* end of top temp object        */
+  b = read_packed(m->rsktop, 5);         /* end of return stack           */
+  c = read_packed(m->dsktop, 5);         /* top of data stack             */
 
   if (b < a || c < b)                    /* pointers must be ordered      */
     return 0;
@@ -322,9 +357,9 @@ rpl_alloc_temp(int nibbles)
         return 0;
     }
 
-  write_nibbles(TEMPTOP_GX, (long)(a + total), 5);
-  write_nibbles(RSKTOP_GX,  (long)(b + total), 5);
-  write_nibbles(AVMEM_GX,   (long)((c - b - total) / 5), 5);
+  write_nibbles(m->temptop, (long)(a + total), 5);
+  write_nibbles(m->rsktop,  (long)(b + total), 5);
+  write_nibbles(m->avmem,   (long)((c - b - total) / 5), 5);
 
   /* Slide the return stack [a,b) up by `total`.  Ranges overlap, so copy via
    * the snapshot buffer rather than a forward store_n. */
@@ -341,42 +376,43 @@ rpl_alloc_temp(int nibbles)
 
 /* Push a pointer to an object onto stack level 1 (ported from RPL_Push). */
 static int
-rpl_push(word_20 addr)
+rpl_push(const rpl_map_t *m, word_20 addr)
 {
   word_20 avmem, stkp;
 
-  avmem = read_packed(AVMEM_GX, 5);
+  avmem = read_packed(m->avmem, 5);
   if (avmem == 0)
     return -1;                           /* no room for another stack slot */
-  write_nibbles(AVMEM_GX, (long)(avmem - 1), 5);
+  write_nibbles(m->avmem, (long)(avmem - 1), 5);
 
-  stkp = read_packed(DSKTOP_GX, 5);
+  stkp = read_packed(m->dsktop, 5);
   stkp -= 5;
   write_nibbles(stkp, (long)addr, 5);    /* new level-1 pointer */
-  write_nibbles(DSKTOP_GX, (long)stkp, 5);
+  write_nibbles(m->dsktop, (long)stkp, 5);
   return 0;
 }
 
 int
 hp48_stack_push_object(const unsigned char *obj, int n)
 {
+  const rpl_map_t *m = rpl_map();
   word_20 base, mask, addr;
   int rc;
 
-  if (!opt_gx || !obj || n < 5)          /* need at least a 5-nibble prologue */
+  if (!m || !obj || n < 5)               /* need at least a 5-nibble prologue */
     return -1;
 
-  map_gx_ram(&base, &mask);
+  map_ram(m, &base, &mask);
 
-  addr = rpl_alloc_temp(n);
+  addr = rpl_alloc_temp(m, n);
   if (addr == 0)
     {
-      unmap_gx_ram(base, mask);
+      unmap_ram(base, mask);
       return -1;
     }
   store_n(addr, (unsigned char *)obj, n);
-  rc = rpl_push(addr);
+  rc = rpl_push(m, addr);
 
-  unmap_gx_ram(base, mask);
+  unmap_ram(base, mask);
   return rc;
 }

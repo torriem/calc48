@@ -56,12 +56,18 @@
 #define DSKBOT_GX	0x806fd
 
 /*
- * RPL memory-manager pointers in system RAM (GX).  Their values partition user
- * RAM in increasing address:
+ * RPL memory-manager pointers in system RAM.  Their values partition user RAM
+ * in increasing address:
  *   ...TEMPOB objects...[TEMPTOP] return stack [RSKTOP] free gap [DSKTOP]...
- * AVMEM holds the free memory in 5-nibble units.  (GX only for now; the SX
- * AVMEM address is not yet known -- see docs/stack_io_plan.md.)
+ * AVMEM holds the free memory in 5-nibble units.  Both models verified against
+ * live state; the SX AVMEM (0x7066e) was found by scanning for the cell holding
+ * (DSKTOP-RSKTOP)/5 and confirming it tracks free memory (see docs/).  On both
+ * models AVMEM sits 0xf0 nibbles above DSKBOT.
  */
+#define TEMPOB_SX	0x7056a
+#define TEMPTOP_SX	0x7056f
+#define RSKTOP_SX	0x70574
+#define AVMEM_SX	0x7066e
 #define TEMPOB_GX	0x806e9
 #define TEMPTOP_GX	0x806ee
 #define RSKTOP_GX	0x806f3

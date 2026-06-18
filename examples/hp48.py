@@ -75,8 +75,8 @@ class Hp48:
                                    ctypes.POINTER(ctypes.c_int)]
         L.hp48_get_lcd.restype = ctypes.POINTER(ctypes.c_ubyte)
 
-        # RPL user-stack read API (hp48_rpl.h) -- only present in a GX-only build
-        # (libcalc48 built with -DHP48_GX_ONLY=ON).  Bind if available.
+        # RPL user-stack read/write API (hp48_rpl.h) -- present when libcalc48 is
+        # built with HP48_WITH_STACK_IO (on by default).  Bind if available.
         self._have_stack = hasattr(L, "hp48_stack_depth")
         if self._have_stack:
             L.hp48_stack_depth.restype = ctypes.c_int
@@ -147,7 +147,7 @@ class Hp48:
         n = rows.value * stride.value
         return bytearray(p[i] for i in range(n)), rows.value, stride.value
 
-    # --- RPL stack (GX-only build) --------------------------------------
+    # --- RPL stack (HP48_WITH_STACK_IO build) ---------------------------
     def stack(self):
         """Return a list of (level, prolog, size, text) for the RPL stack,
         top (level 1) first.  Empty if the build lacks the GX stack API."""
@@ -239,7 +239,7 @@ def main(argv):
                         print("  %d: %s" % (lvl, text))
             elif not emu._have_stack:
                 print("\n(stack read/write API not in this build; "
-                      "configure -DHP48_GX_ONLY=ON)")
+                      "configure -DHP48_WITH_STACK_IO=ON)")
     else:
         print("(pass a saved-state directory to load a ROM and run, "
               "e.g. ~/.hp48)")

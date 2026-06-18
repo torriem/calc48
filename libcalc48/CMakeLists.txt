@@ -46,11 +46,12 @@ if(HP48_WITH_SERIAL)
     list(APPEND CORE_SOURCES src/hp48_serial_pty.c src/hp48_serial_socket.c)
 endif()
 
-# Runtime RPL user-stack read API (hp48_rpl.h / rplstack.c).  Its stack and
-# object-sizing logic is hard-coded for the HP 48 G/GX, so it is built only when
-# the library is configured for a GX target.  See docs/stack_io_plan.md.
-option(HP48_GX_ONLY "Build the GX-only RPL stack read/write API" OFF)
-if(HP48_GX_ONLY)
+# Runtime RPL user-stack read/write API (hp48_rpl.h / rplstack.c).  Supports both
+# SX and GX, selected at runtime from the loaded ROM (opt_gx); HP49 is not
+# supported.  On by default; a minimal/embedded build can turn it off.
+# See docs/stack_io_plan.md.
+option(HP48_WITH_STACK_IO "Build the RPL stack read/write API" ON)
+if(HP48_WITH_STACK_IO)
     list(APPEND CORE_SOURCES src/rplstack.c)
 endif()
 

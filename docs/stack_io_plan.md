@@ -49,38 +49,47 @@ runtime stack read/write, and most of it ports onto libcalc48 directly because
 | `RPL_ObjectSize()` (object length) | **port this** — solves R2; all prologue constants already in `rpl.h` |
 | prologue ids (`DOBINT`, `DOCSTR`, `SEMI`, …) | already in `libcalc48/include/rpl.h` (more complete than droid48) |
 | `DSKTOP`/`DSKBOT` | `debugger.c` (`DSKTOP_SX/GX`, `DSKBOT_SX/GX`) |
-| `TEMPOB`/`TEMPTOP`/`RSKTOP`/`AVMEM` | **GX only** (from droid48); SX `AVMEM` still unknown |
+| `TEMPOB`/`TEMPTOP`/`RSKTOP`/`AVMEM` | **SX and GX both known** (see below) |
 
 droid48's memory-manager pointers are **GX**: `TEMPOB=0x806E9`,
 `TEMPTOP=0x806EE`, `RSKTOP=0x806F3`, `DSKTOP=0x806F8`, `AVMEM=0x807ED` (its
 `DSKTOP` matches our `DSKTOP_GX`). The first four are a consecutive run of
 5-nibble slots (`TEMPOB, TEMPTOP, RSKTOP, DSKTOP, DSKBOT`); `AVMEM` is not in
-that run. So for the WRITE side, the GX manager addresses are known but the SX
-`AVMEM` address still needs a real lookup — which is why the runtime stack I/O
-is built **GX-only** for now (CMake `HP48_GX_ONLY`).
+that run.
+
+The **SX** values were determined empirically by booting an SX ROM and scanning
+system RAM for the cell holding `(DSKTOP-RSKTOP)/5` (the free-memory invariant),
+confirming it tracked as memory changed: `TEMPOB=0x7056A`, `TEMPTOP=0x7056F`,
+`RSKTOP=0x70574`, `DSKTOP=0x70579`, `DSKBOT=0x7057E`, `AVMEM=0x7066E`. (Note:
+`0x807ED` is the **GX** AVMEM — a value sometimes misattributed to SX; on both
+models AVMEM sits `0xF0` nibbles above DSKBOT.)
+
+Both models are therefore supported and **selected at runtime from `opt_gx`** —
+one library binary drives either ROM. HP49 (`opt_gx >= 2`) is not supported. The
+feature is built behind CMake `HP48_WITH_STACK_IO` (on by default).
 
 ## Phase R — READ (do first)
 
 **Status: implemented** (`libcalc48/src/rplstack.c`, `include/hp48_rpl.h`, behind
-`HP48_GX_ONLY`). `hp48_stack_depth`/`_addr`/`_object_prolog`/`_object_size`/
-`_read_object`/`_stack_describe` verified against a real `~/.hp48` state
-(HELLO/1234/777) and demonstrated from `examples/hp48.py`. The R2 fix vs droid48:
-bare `DOIDNT`/`DOLAM` names have no trailing object (size `7 + 2*chars`); only
-`DOTAG` carries one.
+`HP48_WITH_STACK_IO`, default ON). `hp48_stack_depth`/`_addr`/`_object_prolog`/
+`_object_size`/`_read_object`/`_stack_describe` verified on **both** a GX state
+(HELLO/1234/777) and an SX state, from the same binary, and demonstrated from
+`examples/hp48.py`. The R2 fix vs droid48: bare `DOIDNT`/`DOLAM` names have no
+trailing object (size `7 + 2*chars`); only `DOTAG` carries one.
 
 ### R0. New core module
 Add `libcalc48/src/rplstack.c` + a public header `hp48_rpl.h` in
 `libcalc48/include`. Wire into `libcalc48/CMakeLists.txt` `CORE_SOURCES`,
-**gated behind the `HP48_GX_ONLY` CMake option** (default OFF): the module is
-GX-only (see the reference-implementation note), so it is compiled only when the
-build declares a GX target. Operates on the active instance via the `cpu`
-bridge. The module defines the GX `DSKTOP`/`DSKBOT` constants locally (debugger.c
-keeps its own copies; deduping them is optional cleanup).
+**behind the `HP48_WITH_STACK_IO` CMake option** (default ON; a minimal/embedded
+build can turn it off). Operates on the active instance via the `cpu` bridge.
+The SX/GX `DSKTOP`/`DSKBOT` and manager-pointer constants live in `rpl.h` (shared
+with debugger.c); the module picks the set at runtime via a small `rpl_map_t`
+selected by `opt_gx`.
 
 ### R1. Stack walk (refactor of do_stack)
-Internal helper that resolves `sp`, `end`, `depth` from the **GX** pointer
-addresses (`DSKTOP_GX`/`DSKBOT_GX`), guarding on `opt_gx` so a GX-only build that
-is handed an SX ROM fails safe (depth 0) rather than reading garbage.
+Internal helper that resolves `sp`, `end`, `depth` from the model's pointer
+addresses (`rpl_map_t`, chosen by `opt_gx`), failing safe (depth 0) on an
+unsupported model (HP49).
 - `depth = (end - sp)/5 - 1`; the level-`i` object pointer is at `sp + 5*i`
   (level 1 = top), exactly as `do_stack` walks it.
 - Mirror `do_stack`'s force/restore of `mem_cntl[1].config` to the known GX RAM
@@ -192,18 +201,19 @@ calc was idle at the outer loop. The RPL return stack (RAM-resident, distinct
 from the hardware `rstk[]`) depth above baseline is the real "a program is
 running" tell, but reading it needs the same memory-map work as W2.
 
-### W2. Live push  *(GX-only; the droid48 recipe)*
+### W2. Live push  *(SX + GX; the droid48 recipe)*
 
-**Status: implemented** (`rplstack.c`, behind `HP48_GX_ONLY`):
+**Status: implemented** (`rplstack.c`, behind `HP48_WITH_STACK_IO`):
 `hp48_stack_push_object()` with internal `rpl_alloc_temp`/`rpl_push`, reusing
-`write_nibbles`/`store_n`. Validated against a real `~/.hp48`: a round-trip copy
-and a freshly-built System Binary both push correctly, and the latter survives 50
+`write_nibbles`/`store_n` and the `rpl_map_t` (so SX and GX share one code path).
+Validated on **both** an SX and a GX state from the same binary: a round-trip
+copy and a freshly-built System Binary both push correctly and survive 50
 `run_slice` calls on the live calc with no corruption; demonstrated from
 `examples/hp48.py`.
 
 droid48's `binio.c` proves a live push is tractable and hands us the exact
-mechanism (`RPL_CreateTemp` + `RPL_Push`). Port both into `rplstack.c` behind the
-same `HP48_GX_ONLY` gate as the read API, then expose a push entry point.
+mechanism (`RPL_CreateTemp` + `RPL_Push`). Ported into `rplstack.c`, parameterised
+by the `rpl_map_t` (SX/GX) selected from `opt_gx`.
 
 #### Memory layout this relies on (GX)
 
@@ -287,9 +297,8 @@ R2 sizer; `addr = rpl_alloc_temp(n)`; if 0 fail; `store_n(addr, obj, n)`;
   `[RSKTOP, DSKTOP)` is too small, even when a GC would free enough. First cut
   mirrors this (clean OOM return); a fuller version would invoke the calc's GC
   first (harder — out of scope for v1).
-- **GX-only.** Addresses are hard-coded; SX needs `TEMPTOP/RSKTOP/AVMEM_SX`, and
-  the SX `AVMEM` address is still unknown. Gate under `HP48_GX_ONLY`; guard on
-  `opt_gx` and fail safe otherwise.
+- **HP49 unsupported.** SX and GX are both handled (runtime `rpl_map_t` by
+  `opt_gx`); `opt_gx >= 2` (HP49) fails safe.
 - **Display lag.** The stack display refreshes on the calc's next interaction;
   the host may want to nudge it (e.g. a harmless key) after pushing.
 - **No aliasing.** The pushed object is a fresh TEMPOB copy (unlike a `DUP`'d
@@ -310,19 +319,17 @@ recall), or do **keyboard/command-line injection** (type the object's text form
 the heap.
 
 ### Shared prerequisites
-- **GX manager addresses: known** (table above, from droid48). SX still needs its
-  `TEMPTOP`/`RSKTOP`/`AVMEM` — the first two are derivable as the consecutive
-  slots before `DSKTOP_SX`, but SX `AVMEM` needs a real lookup.
+- **Manager addresses: known for both models** (table above; SX found by the
+  free-memory scan). All live in `rpl.h`.
 - `rpl_object_size()` (R2) — **done** (`rplstack.c`); WRITE reuses it to size the
   incoming object.
 
 ## Notes
 - All new core code is in `libcalc48`, instance-aware via the `cpu` bridge; no
   SDL dependency. The W1 host-side tool needs no core changes at all.
-- READ and WRITE (W2 live push) are **both done** for GX (`rplstack.c`, behind
-  `HP48_GX_ONLY`, guarded on `opt_gx`). v1 does no GC (clean OOM on a full heap).
-  The same push primitives, run before `hp48_start()`, also give the safe offline
-  (W1) push for free.
-- Remaining options if wanted: SX support (needs the SX `AVMEM` address);
-  GC-on-full-heap; and `push_real`/`push_string`-style typed conveniences on top
-  of `hp48_stack_push_object`.
+- READ and WRITE (W2 live push) are **both done for SX and GX** (`rplstack.c`,
+  behind `HP48_WITH_STACK_IO`, model chosen at runtime by `opt_gx`). v1 does no GC
+  (clean OOM on a full heap). The same push primitives, run before
+  `hp48_start()`, also give the safe offline (W1) push for free.
+- Remaining options if wanted: GC-on-full-heap; `push_real`/`push_string`-style
+  typed conveniences on top of `hp48_stack_push_object`; and HP49 support.
