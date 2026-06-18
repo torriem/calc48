@@ -287,6 +287,12 @@ main(int argc, char **argv)
 	// Install the SDL UI callbacks on the emulator core
 	register_sdl_ui();
 
+	// Install the serial transport: the bundled PTY/device provider, configured
+	// from the resources (wire = a PTY if useTerminal; IR = serialLine if
+	// useSerial).  The core's serial_init() (in init_active_stuff) opens the
+	// channels through it.
+	hp48_serial_pty(useTerminal, useSerial ? serialLine : NULL, verbose);
+
 	// Some more initialization
 	printf("init active stuff\n");
 	init_active_stuff();

@@ -23,6 +23,7 @@
 #include "device.h"   /* device_t */
 #include "hp48_ui.h"  /* disp_t, hp48_ui_t (SDL-free UI interface) */
 #include "hp48_io.h"  /* hp48_io_t (SDL-free storage interface) */
+#include "hp48_serial.h" /* hp48_serial_t (SDL-free serial transport) */
 
 typedef struct hp48_t {
 
@@ -96,10 +97,12 @@ typedef struct hp48_t {
   /* --- memory-mapped I/O device registers (device.c) --- */
   device_t device;
 
-  /* --- serial / IR port file descriptors (serial.c) --- */
+  /* --- serial / IR channel connection flags (serial.c) ---
+   * >= 0 means the channel is connected (a transport is open for it), -1 means
+   * unplugged.  The actual transport lives behind the hp48_serial_t callbacks;
+   * these are just the core's per-channel "is it connected" state. */
   int wire_fd;
   int ir_fd;
-  int ttyp;
 
   /* --- UI bridge (Phase 3): geometry + front-end callbacks --- */
   disp_t    disp;
@@ -107,6 +110,9 @@ typedef struct hp48_t {
 
   /* --- storage bridge: host-supplied blob load/save callbacks --- */
   hp48_io_t io;
+
+  /* --- serial bridge: host-supplied transport callbacks --- */
+  hp48_serial_t serial;
 
   /* --- run-loop state (Phase 4) --- */
   int       halted;   /* CPU parked in SHUTDN light-sleep; see hp48_run_slice */
@@ -200,10 +206,10 @@ extern hp48_t *cpu;
 /* memory-mapped I/O device registers (device.c) */
 #define device                (cpu->device)
 
-/* serial / IR port file descriptors (serial.c) */
+/* serial / IR channel connection flags (serial.c).  The `serial` callback
+ * table is addressed as cpu->serial directly at its call sites, not bridged. */
 #define wire_fd               (cpu->wire_fd)
 #define ir_fd                 (cpu->ir_fd)
-#define ttyp                  (cpu->ttyp)
 
 /* LCD geometry (Phase 3) and the `ui` callbacks are addressed as cpu->disp /
  * cpu->ui directly at their call sites, not bridged: `disp` collides with a

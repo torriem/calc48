@@ -533,11 +533,20 @@ has been driving toward.
   `~/.hp48` state, showing the live stack display with no SDL.
   Note: the Python example is headless (terminal output), not a GUI; a windowed
   demo (pygame / Qt) would be a follow-up.
-- **Phase 6 — planned (not started).** Portable serial transport via an
-  `hp48_serial_t` callback interface + bundled PTY and socket providers. This is
-  the last host-syscall dependency left in the core (`serial.c`'s direct
-  `open`/`read`/`write`/`select` and its `progname`/`verbose`/`useTerminal`
-  references).
+- **Phase 6 — done.** Portable serial transport via the `hp48_serial_t` callback
+  interface (`hp48_serial.h`, installed with `hp48_set_serial`). `serial.c` now
+  emulates only the UART (RCS/TCS/RBR/TBR + interrupts) and is syscall-free
+  (verified: no `open`/`read`/`write`/`select`/socket externals); the wire/IR
+  transport goes through `cpu->serial.*` with `wire_fd`/`ir_fd` reduced to
+  per-channel connected flags (`ttyp` removed). Two bundled providers behind the
+  `HP48_WITH_SERIAL` option: `hp48_serial_pty.c` (the de-globalized PTY/device
+  code, installed by the SDL front end from its resources) and
+  `hp48_serial_socket.c` (TCP listen/connect + Unix-domain). With
+  `HP48_WITH_STDIO_IO=OFF` and `HP48_WITH_SERIAL=OFF` the core links with no
+  file/serial host syscalls. Verified: full build (core static+shared, SDL app,
+  FFI smoke) clean; the socket provider round-trips RX/TX over TCP loopback
+  through the real `receive_char`/`transmit_char`; `examples/hp48.py` still boots
+  `~/.hp48` and renders the LCD.
 - **Phase 7 — planned (not started).** Remove the remaining host couplings: a
   `now_us` clock seam over `gettimeofday()` (the last always-on dependency;
   enables Windows + virtual/deterministic time), a `HP48_WITH_DEBUGGER` build

@@ -37,6 +37,15 @@ if(HP48_WITH_STDIO_IO)
     list(APPEND CORE_SOURCES src/hp48_io_stdio.c)
 endif()
 
+# The UART emulation (serial.c) is portable and always built; the bundled serial
+# *transport* providers (PTY/device + socket) are the only part that touches host
+# syscalls (open/termios/socket), so they are opt-out too.  With this OFF the
+# core has no serial host syscalls and the host installs its own hp48_serial_t.
+option(HP48_WITH_SERIAL "Build the bundled PTY and socket serial providers" ON)
+if(HP48_WITH_SERIAL)
+    list(APPEND CORE_SOURCES src/hp48_serial_pty.c src/hp48_serial_socket.c)
+endif()
+
 function(configure_calc48_core tgt)
     # Public headers (hp48.h, hp48_ui.h, hp48_io.h, ...) are in include/ and
     # propagate to anything that links this target.

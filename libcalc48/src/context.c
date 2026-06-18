@@ -62,6 +62,14 @@ hp48_set_io(const hp48_io_t *io)
     cpu->io = *io;
 }
 
+/* Install the host's serial transport callbacks on the active instance. */
+void
+hp48_set_serial(const hp48_serial_t *serial)
+{
+  if (serial)
+    cpu->serial = *serial;
+}
+
 /*
  *  Initialise a freshly-allocated instance to the same defaults the static
  *  default_instance carries.  Keep in sync with the initializer above.
