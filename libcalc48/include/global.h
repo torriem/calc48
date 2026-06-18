@@ -50,53 +50,10 @@
 
 #include "config.h"
 
-
 /*
- * If we are running Linux, `linux' will be defined by gcc.
+ * Legacy platform detection (SunOS / Solaris / HP-UX / IRIX) was removed in the
+ * Phase 7 modern-C cleanup; libcalc48 targets modern POSIX (Linux, the BSDs,
+ * macOS) and, via PLATFORM_MINGW, Windows.  See REFACTOR_PLAN.md.
  */
-#if defined(linux)
-
-#ifndef LINUX
-#define LINUX	1
-#endif
-
-#define SYSV_TIME 1
-
-#else	/* Not Linux */
-
-#if defined(sun) && defined(unix)
-
-#if defined(__svr4__) || defined(SVR4) || defined(SYSV)
-
-#ifndef SOLARIS
-#define SOLARIS	1
-#endif
-
-#define SYSV_TIME 1
-
-#else  /* Not Solaris */
-
-#if defined(hpux)
-
-#ifndef HPUX
-#define HPUX	1
-#endif
-
-#else  /* Not HP-UX */
-
-#ifndef SUNOS
-#define SUNOS	1
-#endif
-
-#endif  /* Not HP-UX */
-#endif  /* Not Solaris */
-#endif	/* Sun && Unix */
-#endif	/* Not Linux */
-
-#ifdef SYSV
-#ifndef SYSV_TIME
-#define SYSV_TIME 1
-#endif
-#endif
 
 #endif /* !_GLOBAL_H */

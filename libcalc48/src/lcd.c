@@ -71,9 +71,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#ifdef SUNOS
-#include <memory.h>
-#endif
 
 
 #include "hp48.h"

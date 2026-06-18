@@ -89,12 +89,6 @@
 #include <fcntl.h>
 #include <pwd.h>
 #include <sys/types.h>
-#ifdef SYSV
-#include <sys/utsname.h>
-#endif
-#ifdef SUNOS
-#include <memory.h>
-#endif
 
 
 

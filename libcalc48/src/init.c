@@ -78,14 +78,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
-#include <sys/stat.h>
 #include <string.h>
-#include <pwd.h>
-#include <sys/types.h>
-#ifdef SUNOS
-#include <memory.h>
-#endif
 
 #include "hp48.h"
 #include "hp48_emu.h"

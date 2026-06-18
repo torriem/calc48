@@ -73,9 +73,6 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#ifdef SUNOS
-#include <memory.h>
-#endif
 
 #include "hp48.h"
 #include "device.h"

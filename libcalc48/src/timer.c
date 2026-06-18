@@ -147,8 +147,6 @@ void
 set_accesstime(void)
 {
   struct timeval  tv;
-#ifndef SOLARIS
-#endif
   word_64	  ticks, timeout, timer2;
   word_20	  accesstime_loc, timeout_loc;
   word_20	  accesscrc_loc, timeoutclk_loc;
@@ -161,7 +159,7 @@ set_accesstime(void)
 printf("***set_accesstime***\n");
 
   /*
-   * This is done to set the variable 'timezone' on SYSV systems
+   * Determine the local UTC offset so the calculator clock shows local time.
    */
   (void)time(&gmt);
   ltm = localtime(&gmt);
@@ -169,13 +167,7 @@ printf("***set_accesstime***\n");
 	// SDL Port cygwin: use _timezone to get the timezone offset
 	systime_offset += _timezone;
 #else
-#if defined(SYSV_TIME) || defined(__sgi)
-  systime_offset = timezone;
-  if( ltm->tm_isdst )
-    systime_offset -= 3600;
-#else
-  systime_offset = -ltm->tm_gmtoff;
-#endif
+  systime_offset = -ltm->tm_gmtoff;   /* glibc / BSD / macOS */
 #endif
 	
 
@@ -247,8 +239,6 @@ void
 start_timer(int timer)
 {
   struct timeval  tv;
-#ifndef SOLARIS
-#endif
   assert(timer <= NR_TIMERS);
 
   if (timers[timer].run == 1)
@@ -275,8 +265,6 @@ void
 restart_timer(int timer)
 {
   struct timeval  tv;
-#ifndef SOLARIS
-#endif
 
   if (timer > NR_TIMERS)
     return;
@@ -307,8 +295,6 @@ void
 stop_timer(int timer)
 {
   struct timeval  tv;
-#ifndef SOLARIS
-#endif
 
   if (timer > NR_TIMERS)
     return;
@@ -358,8 +344,6 @@ word_64
 get_timer(int timer)
 {
   struct timeval  tv;
-#ifndef SOLARIS
-#endif
   word_64         stop;
 
   if (timer > NR_TIMERS)
@@ -399,8 +383,6 @@ t1_t2_ticks
 get_t1_t2(void)
 {
   struct timeval  tv;
-#ifndef SOLARIS
-#endif
   word_64         stop;
   t1_t2_ticks	  ticks;
   word_64	  access_time;

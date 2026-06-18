@@ -25,16 +25,8 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#if defined(HPUX) || defined(CSRG_BASED)
-#  include <sys/ioctl.h>
-#endif
 #include <unistd.h>
 #include <termios.h>
-#ifdef SOLARIS
-#  include <sys/stream.h>
-#  include <sys/stropts.h>
-#  include <sys/termios.h>
-#endif
 
 #include "hp48_serial.h"
 
@@ -87,121 +79,33 @@ set_raw_mode(int fd)
 static int
 open_wire_pty(void)
 {
-  char *p;
-  int   c, n;
-  char  tty_dev_name[128];
+  int   m, s;
+  char *slave;
 
   pty.wire_fd = -1;
   pty.wire_slave = -1;
   pty.wire_name[0] = '\0';
 
-#if defined(IRIX)
-  if ((p = _getpty(&pty.wire_fd, O_RDWR | O_EXCL | O_NDELAY, 0666, 0)) == NULL)
-    {
-      pty.wire_fd = -1;
-      return -1;
-    }
-  if ((pty.wire_slave = open(p, O_RDWR | O_NDELAY, 0666)) < 0)
-    {
-      close(pty.wire_fd);
-      pty.wire_fd = -1;
-      return -1;
-    }
-  strncpy(pty.wire_name, p, sizeof(pty.wire_name) - 1);
-#elif defined(SOLARIS)
-  if ((pty.wire_fd = open("/dev/ptmx", O_RDWR | O_NONBLOCK, 0666)) < 0)
+  /* Unix98 pseudo-terminal: posix_openpt + grantpt/unlockpt/ptsname is the
+   * portable modern path (Linux, the BSDs, macOS). */
+  if ((m = posix_openpt(O_RDWR | O_NOCTTY | O_NONBLOCK)) < 0)
     return -1;
-  grantpt(pty.wire_fd);
-  unlockpt(pty.wire_fd);
-  p = ptsname(pty.wire_fd);
-  strncpy(tty_dev_name, p, sizeof(tty_dev_name) - 1);
-  tty_dev_name[sizeof(tty_dev_name) - 1] = '\0';
-  if ((pty.wire_slave = open(tty_dev_name, O_RDWR | O_NDELAY, 0666)) < 0)
+  if (grantpt(m) != 0 || unlockpt(m) != 0 || (slave = ptsname(m)) == NULL)
     {
-      close(pty.wire_fd);
-      pty.wire_fd = -1;
+      close(m);
       return -1;
     }
-  ioctl(pty.wire_slave, I_PUSH, "ptem");
-  ioctl(pty.wire_slave, I_PUSH, "ldterm");
-  strncpy(pty.wire_name, tty_dev_name, sizeof(pty.wire_name) - 1);
-#elif defined(LINUX)
-  /* Unix98 PTY (preferred) */
-  if ((pty.wire_fd = open("/dev/ptmx", O_RDWR | O_NONBLOCK, 0666)) >= 0)
+  if ((s = open(slave, O_RDWR | O_NDELAY | O_NOCTTY)) < 0)
     {
-      grantpt(pty.wire_fd);
-      unlockpt(pty.wire_fd);
-      if (ptsname_r(pty.wire_fd, tty_dev_name, sizeof(tty_dev_name)))
-        {
-          close(pty.wire_fd);
-          pty.wire_fd = -1;
-          return -1;
-        }
-      if ((pty.wire_slave = open(tty_dev_name, O_RDWR | O_NDELAY, 0666)) < 0)
-        {
-          close(pty.wire_fd);
-          pty.wire_fd = -1;
-          return -1;
-        }
-      strncpy(pty.wire_name, tty_dev_name, sizeof(pty.wire_name) - 1);
+      close(m);
+      return -1;
     }
-  else
-    {
-      /* BSD PTY (legacy) */
-      c = 'p';
-      do
-        {
-          for (n = 0; n < 16; n++)
-            {
-              sprintf(tty_dev_name, "/dev/pty%c%x", c, n);
-              if ((pty.wire_fd = open(tty_dev_name,
-                                      O_RDWR | O_EXCL | O_NDELAY, 0666)) >= 0)
-                {
-                  pty.wire_slave = pty.wire_fd;
-                  sprintf(tty_dev_name, "/dev/tty%c%x", c, n);
-                  strncpy(pty.wire_name, tty_dev_name,
-                          sizeof(pty.wire_name) - 1);
-                  break;
-                }
-            }
-          c++;
-        }
-      while ((pty.wire_fd < 0) && (errno != ENOENT));
-    }
-#else
-  /* SUNOS, HPUX */
-  c = 'p';
-  do
-    {
-      for (n = 0; n < 16; n++)
-        {
-          sprintf(tty_dev_name, "/dev/ptyp%x", n);
-          if ((pty.wire_fd = open(tty_dev_name,
-                                  O_RDWR | O_EXCL | O_NDELAY, 0666)) >= 0)
-            {
-              sprintf(tty_dev_name, "/dev/tty%c%x", c, n);
-              if ((pty.wire_slave = open(tty_dev_name,
-                                         O_RDWR | O_NDELAY, 0666)) < 0)
-                {
-                  close(pty.wire_fd);
-                  pty.wire_fd = -1;
-                  return -1;
-                }
-              strncpy(pty.wire_name, tty_dev_name, sizeof(pty.wire_name) - 1);
-              break;
-            }
-        }
-      c++;
-    }
-  while ((pty.wire_fd < 0) && (errno != ENOENT));
-#endif
 
-  if (pty.wire_fd < 0)
-    return -1;
-
+  pty.wire_fd    = m;
+  pty.wire_slave = s;
+  strncpy(pty.wire_name, slave, sizeof(pty.wire_name) - 1);
   pty.wire_name[sizeof(pty.wire_name) - 1] = '\0';
-  if (pty.wire_slave >= 0)
-    set_raw_mode(pty.wire_slave);
+  set_raw_mode(pty.wire_slave);
   return pty.wire_fd;
 }
 
@@ -283,13 +187,8 @@ pty_configure(void *user, int channel, int baud)
       default: speed = B9600; break;
     }
 
-#if defined(__APPLE__) || defined(CSRG_BASED)
-  cfsetispeed(&ttybuf, speed);
+  cfsetispeed(&ttybuf, speed);   /* portable termios baud setter */
   cfsetospeed(&ttybuf, speed);
-#else
-  ttybuf.c_cflag &= ~CBAUD;
-  ttybuf.c_cflag |= speed;
-#endif
 
 #if defined(TCSANOW)
   tcsetattr(fd, TCSANOW, &ttybuf);
