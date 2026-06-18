@@ -96,6 +96,10 @@ class Hp48:
             L.hp48_stack_push_object.argtypes = [ctypes.POINTER(ctypes.c_ubyte),
                                                  ctypes.c_int]
             L.hp48_stack_push_object.restype = ctypes.c_int
+            L.hp48_push_real.argtypes = [ctypes.c_double]
+            L.hp48_push_real.restype = ctypes.c_int
+            L.hp48_push_string.argtypes = [ctypes.c_char_p, ctypes.c_int]
+            L.hp48_push_string.restype = ctypes.c_int
 
     # --- lifecycle -------------------------------------------------------
     def activate(self):
@@ -185,6 +189,17 @@ class Hp48:
         arr = (ctypes.c_ubyte * len(nibbles))(*nibbles)
         return self._lib.hp48_stack_push_object(arr, len(nibbles)) == 0
 
+    def push_real(self, value):
+        """Push a number as an HP 48 Real.  Returns True on success."""
+        return self._have_stack and self._lib.hp48_push_real(float(value)) == 0
+
+    def push_string(self, text):
+        """Push a string (HP 48 character string).  Returns True on success."""
+        if not self._have_stack:
+            return False
+        b = text.encode("latin-1") if isinstance(text, str) else bytes(text)
+        return self._lib.hp48_push_string(b, len(b)) == 0
+
     def lcd_ascii(self, width_px=131):
         """Render the LCD as ASCII art (each nibble is 4 horizontal pixels)."""
         buf, rows, stride = self.lcd_nibbles()
@@ -230,13 +245,13 @@ def main(argv):
                     print("  %d: prolog=%05x size=%-4d %s"
                           % (lvl, prolog, size, text))
 
-                # Demonstrate writing: duplicate level 1 by reading its nibbles
-                # and pushing a fresh copy (in-memory only; not saved).
-                obj = emu.read_object(1)
-                if obj and emu.push_object(obj):
-                    print("\npushed a copy of level 1; stack is now:")
-                    for lvl, prolog, size, text in emu.stack():
-                        print("  %d: %s" % (lvl, text))
+                # Demonstrate writing (in-memory only; not saved): push a
+                # number and a string with the typed conveniences.
+                emu.push_real(2.718281828)
+                emu.push_string("hi from python")
+                print("\npushed a Real and a String; stack is now:")
+                for lvl, prolog, size, text in emu.stack():
+                    print("  %d: %s" % (lvl, text))
             elif not emu._have_stack:
                 print("\n(stack read/write API not in this build; "
                       "configure -DHP48_WITH_STACK_IO=ON)")

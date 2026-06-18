@@ -66,4 +66,16 @@ extern int      hp48_stack_describe(int level, char *out, int max);
  */
 extern int      hp48_stack_push_object(const unsigned char *obj, int n);
 
+/*
+ *  Convenience pushes built on hp48_stack_push_object().  Same safe-point rule
+ *  applies; each returns 0 on success, < 0 on failure.
+ */
+
+/* Push `v` as an HP 48 Real number (12 significant digits, exponent +/-499).
+ * Returns < 0 if the magnitude is out of the representable exponent range. */
+extern int      hp48_push_real(double v);
+
+/* Push `len` bytes of `bytes` as an HP 48 character string (DOCSTR). */
+extern int      hp48_push_string(const char *bytes, int len);
+
 #endif /* !_HP48_RPL_H */

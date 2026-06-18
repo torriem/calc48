@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "hp48.h"        /* word_20, saturn / opt_gx bridge, load_addr */
 #include "hp48_emu.h"    /* read_nibble, write_nibbles, load_address, store_n */
@@ -414,5 +415,98 @@ hp48_stack_push_object(const unsigned char *obj, int n)
   rc = rpl_push(m, addr);
 
   unmap_ram(base, mask);
+  return rc;
+}
+
+/* ---- typed conveniences ----------------------------------------------- */
+
+/*
+ *  Encode `v` as an HP 48 Real and push it.  In-memory layout of the 16-nibble
+ *  body (offsets from the object's prologue), per real_number() in rpl.c:
+ *    5..7  exponent  (3 BCD nibbles, LSB digit first; <0 stored as exp+1000)
+ *    8..19 mantissa  (12 digits, least-significant digit at the lower offset;
+ *                     i.e. leading digit d0 at offset 19)
+ *    20    sign      (0 = +, 9 = -)
+ */
+int
+hp48_push_real(double v)
+{
+  unsigned char obj[21];
+  char buf[40], *e;
+  char digits[12];
+  int  i, k, neg = 0, re = 0, raw, d;
+
+  /* prologue DOREAL = 0x02933, LSB nibble first */
+  obj[0] = 3; obj[1] = 3; obj[2] = 9; obj[3] = 2; obj[4] = 0;
+  for (i = 5; i < 21; i++)
+    obj[i] = 0;                            /* zero == the Real 0 */
+
+  if (v != 0.0)
+    {
+      if (v < 0) { neg = 1; v = -v; }
+
+      /* "%.11E" gives 12 significant digits (1 before + 11 after the point)
+       * and the decimal exponent -- robust vs. manual log10/scaling. */
+      snprintf(buf, sizeof(buf), "%.11E", v);
+      d = 0;
+      digits[d++] = buf[0];                /* leading digit  */
+      for (i = 2; d < 12; i++)             /* skip buf[1]=='.' */
+        digits[d++] = buf[i];
+      if ((e = strchr(buf, 'E')) == NULL)
+        return -1;
+      re = atoi(e + 1);
+      if (re > 499 || re < -499)
+        return -1;                         /* outside HP real exponent range */
+
+      for (k = 0; k < 12; k++)             /* mantissa: obj[19-k] = digit k */
+        obj[19 - k] = (unsigned char)(digits[k] - '0');
+
+      raw = (re < 0) ? re + 1000 : re;     /* 3-digit BCD, LSB nibble first */
+      obj[5] = (unsigned char)(raw % 10);
+      obj[6] = (unsigned char)((raw / 10) % 10);
+      obj[7] = (unsigned char)((raw / 100) % 10);
+      obj[20] = neg ? 9 : 0;
+    }
+
+  return hp48_stack_push_object(obj, 21);
+}
+
+/*
+ *  Encode `len` bytes as an HP 48 character string (DOCSTR) and push it.
+ *  Layout: prologue (5) + length field (5 nibbles = 2*len + 5) + each byte as
+ *  two nibbles, low nibble first (per dec_string() in rpl.c).
+ */
+int
+hp48_push_string(const char *bytes, int len)
+{
+  unsigned char *obj;
+  long lf;
+  int  i, total, rc;
+
+  if (!bytes || len < 0)
+    return -1;
+  total = 10 + 2 * len;
+  if ((obj = (unsigned char *)malloc((size_t)total)) == NULL)
+    return -1;
+
+  /* prologue DOCSTR = 0x02A2C, LSB nibble first */
+  obj[0] = 0xC; obj[1] = 2; obj[2] = 0xA; obj[3] = 2; obj[4] = 0;
+
+  lf = 2L * len + 5;                       /* length field (incl. itself) */
+  obj[5] = (unsigned char)(lf & 0xf);
+  obj[6] = (unsigned char)((lf >> 4) & 0xf);
+  obj[7] = (unsigned char)((lf >> 8) & 0xf);
+  obj[8] = (unsigned char)((lf >> 12) & 0xf);
+  obj[9] = (unsigned char)((lf >> 16) & 0xf);
+
+  for (i = 0; i < len; i++)
+    {
+      unsigned char c = (unsigned char)bytes[i];
+      obj[10 + 2 * i]     = (unsigned char)(c & 0xf);
+      obj[10 + 2 * i + 1] = (unsigned char)((c >> 4) & 0xf);
+    }
+
+  rc = hp48_stack_push_object(obj, total);
+  free(obj);
   return rc;
 }
