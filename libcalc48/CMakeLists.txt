@@ -12,7 +12,6 @@
 set(CORE_SOURCES
     src/context.c
     src/actions.c
-    src/debugger.c
     src/device.c
     src/disasm.c
     src/emulate.c
@@ -53,6 +52,16 @@ endif()
 option(HP48_WITH_STACK_IO "Build the RPL stack read/write API" ON)
 if(HP48_WITH_STACK_IO)
     list(APPEND CORE_SOURCES src/rplstack.c)
+endif()
+
+# The interactive debugger (debugger.c) reads commands from stdin and is a
+# terminal-bound development tool.  On by default; turn it off for an embedded /
+# headless build and an inert stub (debugger_stub.c) is compiled instead.
+option(HP48_WITH_DEBUGGER "Build the interactive stdin debugger" ON)
+if(HP48_WITH_DEBUGGER)
+    list(APPEND CORE_SOURCES src/debugger.c)
+else()
+    list(APPEND CORE_SOURCES src/debugger_stub.c)
 endif()
 
 function(configure_calc48_core tgt)
