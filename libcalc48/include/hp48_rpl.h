@@ -51,4 +51,19 @@ extern int      hp48_read_object(uint32_t addr, unsigned char *out, int max);
  * error (bad level / non-GX). */
 extern int      hp48_stack_describe(int level, char *out, int max);
 
+/*
+ *  Push a complete RPL object onto stack level 1.  `obj` is `n` raw nibbles
+ *  (one per byte), prologue first -- the same packing hp48_read_object()
+ *  produces, so an object read from one calc can be pushed onto another.  A
+ *  copy is allocated in the temporary-object area and the stack grown to point
+ *  at it.  Returns 0 on success, < 0 on failure (out of memory, non-GX
+ *  instance, or a malformed object).
+ *
+ *  Call only at a safe point -- the calculator idle, between hp48_run_slice()
+ *  calls -- so the allocation + pointer updates are atomic w.r.t. execution.
+ *  No garbage collection is performed: a push can fail for lack of contiguous
+ *  free memory even when a GC would have made room.
+ */
+extern int      hp48_stack_push_object(const unsigned char *obj, int n);
+
 #endif /* !_HP48_RPL_H */

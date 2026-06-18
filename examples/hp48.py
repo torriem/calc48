@@ -89,6 +89,13 @@ class Hp48:
             L.hp48_stack_describe.argtypes = [ctypes.c_int, ctypes.c_char_p,
                                               ctypes.c_int]
             L.hp48_stack_describe.restype = ctypes.c_int
+            L.hp48_read_object.argtypes = [ctypes.c_uint,
+                                           ctypes.POINTER(ctypes.c_ubyte),
+                                           ctypes.c_int]
+            L.hp48_read_object.restype = ctypes.c_int
+            L.hp48_stack_push_object.argtypes = [ctypes.POINTER(ctypes.c_ubyte),
+                                                 ctypes.c_int]
+            L.hp48_stack_push_object.restype = ctypes.c_int
 
     # --- lifecycle -------------------------------------------------------
     def activate(self):
@@ -157,6 +164,27 @@ class Hp48:
             out.append((lvl, prolog, size, text))
         return out
 
+    def read_object(self, level):
+        """Return the raw nibbles (bytes, one nibble each) of the object at
+        `level`, or None if unavailable."""
+        if not self._have_stack:
+            return None
+        addr = self._lib.hp48_stack_addr(level)
+        size = self._lib.hp48_object_size(addr)
+        if size <= 0:
+            return None
+        buf = (ctypes.c_ubyte * size)()
+        n = self._lib.hp48_read_object(addr, buf, size)
+        return bytes(buf[:n]) if n > 0 else None
+
+    def push_object(self, nibbles):
+        """Push a complete RPL object (raw nibbles, prologue first) onto level 1.
+        Returns True on success.  Call only when the calc is idle."""
+        if not self._have_stack:
+            return False
+        arr = (ctypes.c_ubyte * len(nibbles))(*nibbles)
+        return self._lib.hp48_stack_push_object(arr, len(nibbles)) == 0
+
     def lcd_ascii(self, width_px=131):
         """Render the LCD as ASCII art (each nibble is 4 horizontal pixels)."""
         buf, rows, stride = self.lcd_nibbles()
@@ -201,8 +229,16 @@ def main(argv):
                 for lvl, prolog, size, text in stk:
                     print("  %d: prolog=%05x size=%-4d %s"
                           % (lvl, prolog, size, text))
+
+                # Demonstrate writing: duplicate level 1 by reading its nibbles
+                # and pushing a fresh copy (in-memory only; not saved).
+                obj = emu.read_object(1)
+                if obj and emu.push_object(obj):
+                    print("\npushed a copy of level 1; stack is now:")
+                    for lvl, prolog, size, text in emu.stack():
+                        print("  %d: %s" % (lvl, text))
             elif not emu._have_stack:
-                print("\n(stack read API not in this build; "
+                print("\n(stack read/write API not in this build; "
                       "configure -DHP48_GX_ONLY=ON)")
     else:
         print("(pass a saved-state directory to load a ROM and run, "

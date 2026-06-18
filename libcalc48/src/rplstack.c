@@ -18,8 +18,8 @@
 #include <stdlib.h>
 
 #include "hp48.h"        /* word_20, saturn / opt_gx bridge, load_addr */
-#include "hp48_emu.h"    /* read_nibble */
-#include "rpl.h"         /* prologue constants, DSKTOP_GX/DSKBOT_GX, decode */
+#include "hp48_emu.h"    /* read_nibble, write_nibbles, load_address, store_n */
+#include "rpl.h"         /* prologue + manager-pointer constants, decode */
 #include "hp48_rpl.h"
 
 /* Standard GX RAM bank mapping; mem_cntl[1] selects which 256K window is RAM. */
@@ -282,4 +282,101 @@ hp48_stack_describe(int level, char *out, int max)
   free(typ);
   free(dat);
   return (len < 0) ? -1 : len;
+}
+
+/* ---- WRITE / push (ported from droid48 binio.c) ----------------------- */
+
+/*
+ *  Allocate `nibbles` of temporary-object space and return the base address of
+ *  the new (uninitialised) object, or 0 on failure.  Ported from RPL_CreateTemp:
+ *  the chunk is carved at the top of TEMPOB and the return stack is slid up to
+ *  make room, so no existing object moves and no stack pointers need fixing.
+ *  Caller must already hold the forced GX RAM mapping.
+ */
+static word_20
+rpl_alloc_temp(int nibbles)
+{
+  word_20 a, b, c, total, blocklen;
+  unsigned char *buf = NULL;
+
+  if (nibbles <= 0)
+    return 0;
+  total = (word_20)nibbles + 6;          /* + 5-nibble length field + 1 marker */
+
+  a = read_packed(TEMPTOP_GX, 5);        /* end of top temp object        */
+  b = read_packed(RSKTOP_GX, 5);         /* end of return stack           */
+  c = read_packed(DSKTOP_GX, 5);         /* top of data stack             */
+
+  if (b < a || c < b)                    /* pointers must be ordered      */
+    return 0;
+  if (b + total > c)                     /* not enough contiguous free RAM */
+    return 0;
+
+  /* Grab the relocation scratch buffer *before* mutating any pointers, so a
+   * malloc failure leaves the calculator state untouched. */
+  blocklen = b - a;
+  if (blocklen > 0)
+    {
+      buf = (unsigned char *)malloc((size_t)blocklen);
+      if (!buf)
+        return 0;
+    }
+
+  write_nibbles(TEMPTOP_GX, (long)(a + total), 5);
+  write_nibbles(RSKTOP_GX,  (long)(b + total), 5);
+  write_nibbles(AVMEM_GX,   (long)((c - b - total) / 5), 5);
+
+  /* Slide the return stack [a,b) up by `total`.  Ranges overlap, so copy via
+   * the snapshot buffer rather than a forward store_n. */
+  if (blocklen > 0)
+    {
+      load_address(buf, a, (int)blocklen);
+      store_n(a + total, buf, (int)blocklen);
+      free(buf);
+    }
+
+  write_nibbles(a + total - 5, (long)total, 5);   /* object length field */
+  return a + 1;                                    /* base = prologue addr */
+}
+
+/* Push a pointer to an object onto stack level 1 (ported from RPL_Push). */
+static int
+rpl_push(word_20 addr)
+{
+  word_20 avmem, stkp;
+
+  avmem = read_packed(AVMEM_GX, 5);
+  if (avmem == 0)
+    return -1;                           /* no room for another stack slot */
+  write_nibbles(AVMEM_GX, (long)(avmem - 1), 5);
+
+  stkp = read_packed(DSKTOP_GX, 5);
+  stkp -= 5;
+  write_nibbles(stkp, (long)addr, 5);    /* new level-1 pointer */
+  write_nibbles(DSKTOP_GX, (long)stkp, 5);
+  return 0;
+}
+
+int
+hp48_stack_push_object(const unsigned char *obj, int n)
+{
+  word_20 base, mask, addr;
+  int rc;
+
+  if (!opt_gx || !obj || n < 5)          /* need at least a 5-nibble prologue */
+    return -1;
+
+  map_gx_ram(&base, &mask);
+
+  addr = rpl_alloc_temp(n);
+  if (addr == 0)
+    {
+      unmap_gx_ram(base, mask);
+      return -1;
+    }
+  store_n(addr, (unsigned char *)obj, n);
+  rc = rpl_push(addr);
+
+  unmap_gx_ram(base, mask);
+  return rc;
 }

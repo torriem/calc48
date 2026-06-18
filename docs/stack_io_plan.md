@@ -194,6 +194,13 @@ running" tell, but reading it needs the same memory-map work as W2.
 
 ### W2. Live push  *(GX-only; the droid48 recipe)*
 
+**Status: implemented** (`rplstack.c`, behind `HP48_GX_ONLY`):
+`hp48_stack_push_object()` with internal `rpl_alloc_temp`/`rpl_push`, reusing
+`write_nibbles`/`store_n`. Validated against a real `~/.hp48`: a round-trip copy
+and a freshly-built System Binary both push correctly, and the latter survives 50
+`run_slice` calls on the live calc with no corruption; demonstrated from
+`examples/hp48.py`.
+
 droid48's `binio.c` proves a live push is tractable and hands us the exact
 mechanism (`RPL_CreateTemp` + `RPL_Push`). Port both into `rplstack.c` behind the
 same `HP48_GX_ONLY` gate as the read API, then expose a push entry point.
@@ -312,10 +319,10 @@ the heap.
 ## Notes
 - All new core code is in `libcalc48`, instance-aware via the `cpu` bridge; no
   SDL dependency. The W1 host-side tool needs no core changes at all.
-- READ is **done** (`rplstack.c`, behind `HP48_GX_ONLY`). WRITE is now fully
-  specified (W2): the droid48 recipe ports directly, the GX addresses are known,
-  and R2's sizer is in place — the only genuinely open item for GX is choosing
-  whether v1 handles GC (it need not). The same W2 primitives, run before
-  `hp48_start()`, also give the safe offline (W1) push for free.
-- Build the WRITE primitives in the same `HP48_GX_ONLY` module as the read API;
-  guard on `opt_gx` and fail safe on non-GX.
+- READ and WRITE (W2 live push) are **both done** for GX (`rplstack.c`, behind
+  `HP48_GX_ONLY`, guarded on `opt_gx`). v1 does no GC (clean OOM on a full heap).
+  The same push primitives, run before `hp48_start()`, also give the safe offline
+  (W1) push for free.
+- Remaining options if wanted: SX support (needs the SX `AVMEM` address);
+  GC-on-full-heap; and `push_real`/`push_string`-style typed conveniences on top
+  of `hp48_stack_push_object`.
