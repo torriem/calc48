@@ -80,9 +80,7 @@
 #include <sys/time.h>
 
 #include "mmu.h"
-#ifdef HAVE_STDINT_H 
-# include <stdint.h>
-#endif
+#include <stdint.h>
 
 #define RAM_SIZE_SX 0x10000
 #define RAM_SIZE_GX 0x40000
@@ -308,6 +306,14 @@ extern void		do_interupt (void);
 extern void		hp48_start (void);
 extern int		hp48_run_slice (int budget_us);
 extern int		hp48_check_wakeup (void);
+
+/*
+ * Clock seam (Phase 7).  Install a microsecond clock for the emulator's
+ * timekeeping, replacing the default gettimeofday().  Pass `now_us` = NULL to
+ * restore the default.  Useful on hosts without gettimeofday (Windows) or to
+ * drive virtual / deterministic time in tests.  Process-global.
+ */
+extern void		hp48_set_clock (uint64_t (*now_us)(void *user), void *user);
 extern int		step_instruction (void);
 extern void		schedule (void);
 

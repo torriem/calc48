@@ -59,4 +59,8 @@ extern long        diff_timer     (word_64 *t1, word_64 *t2);
 extern t1_t2_ticks get_t1_t2      (void);
 extern void	   set_accesstime (void);
 
+/* Clock seam (Phase 7): fill *tv from the installed clock (default
+ * gettimeofday); see hp48_set_clock() in hp48.h. */
+extern void        hp48_now_timeval (struct timeval *tv);
+
 #endif /* !_TIMER_H */

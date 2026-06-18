@@ -2406,9 +2406,6 @@ int
 hp48_run_slice(int budget_us)
 {
   struct timeval t0, now;
-#ifndef SOLARIS
-  struct timezone tz;
-#endif
 
   /* Parked in SHUTDN light-sleep: re-check wake conditions cheaply. */
   if (halted) {
@@ -2419,11 +2416,7 @@ hp48_run_slice(int budget_us)
     start_timer(RUN_TIMER);
   }
 
-#ifdef SOLARIS
-  gettimeofday(&t0);
-#else
-  gettimeofday(&t0, &tz);
-#endif
+  hp48_now_timeval(&t0);
 
   do {
     step_instruction();
@@ -2440,11 +2433,7 @@ hp48_run_slice(int budget_us)
     /* Bound the slice by real elapsed time, sampled every ~1024 instructions
      * so we are not calling gettimeofday() on every instruction. */
     if ((instructions & 0x3ff) == 0) {
-#ifdef SOLARIS
-      gettimeofday(&now);
-#else
-      gettimeofday(&now, &tz);
-#endif
+      hp48_now_timeval(&now);
       if (((now.tv_sec  - t0.tv_sec) * 1000000L +
            (now.tv_usec - t0.tv_usec)) >= budget_us)
         break;
