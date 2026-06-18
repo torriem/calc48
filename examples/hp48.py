@@ -75,6 +75,21 @@ class Hp48:
                                    ctypes.POINTER(ctypes.c_int)]
         L.hp48_get_lcd.restype = ctypes.POINTER(ctypes.c_ubyte)
 
+        # RPL user-stack read API (hp48_rpl.h) -- only present in a GX-only build
+        # (libcalc48 built with -DHP48_GX_ONLY=ON).  Bind if available.
+        self._have_stack = hasattr(L, "hp48_stack_depth")
+        if self._have_stack:
+            L.hp48_stack_depth.restype = ctypes.c_int
+            L.hp48_stack_addr.argtypes = [ctypes.c_int]
+            L.hp48_stack_addr.restype = ctypes.c_uint
+            L.hp48_object_size.argtypes = [ctypes.c_uint]
+            L.hp48_object_size.restype = ctypes.c_int
+            L.hp48_object_prolog.argtypes = [ctypes.c_uint]
+            L.hp48_object_prolog.restype = ctypes.c_uint
+            L.hp48_stack_describe.argtypes = [ctypes.c_int, ctypes.c_char_p,
+                                              ctypes.c_int]
+            L.hp48_stack_describe.restype = ctypes.c_int
+
     # --- lifecycle -------------------------------------------------------
     def activate(self):
         self._lib.hp48_set_active(self._h)
@@ -125,6 +140,23 @@ class Hp48:
         n = rows.value * stride.value
         return bytearray(p[i] for i in range(n)), rows.value, stride.value
 
+    # --- RPL stack (GX-only build) --------------------------------------
+    def stack(self):
+        """Return a list of (level, prolog, size, text) for the RPL stack,
+        top (level 1) first.  Empty if the build lacks the GX stack API."""
+        if not self._have_stack:
+            return []
+        out = []
+        buf = ctypes.create_string_buffer(512)
+        for lvl in range(1, self._lib.hp48_stack_depth() + 1):
+            addr = self._lib.hp48_stack_addr(lvl)
+            prolog = self._lib.hp48_object_prolog(addr)
+            size = self._lib.hp48_object_size(addr)
+            n = self._lib.hp48_stack_describe(lvl, buf, len(buf))
+            text = buf.value.decode("latin-1") if n >= 0 else "?"
+            out.append((lvl, prolog, size, text))
+        return out
+
     def lcd_ascii(self, width_px=131):
         """Render the LCD as ASCII art (each nibble is 4 horizontal pixels)."""
         buf, rows, stride = self.lcd_nibbles()
@@ -162,6 +194,16 @@ def main(argv):
                     break
             print("LCD:")
             print(emu.lcd_ascii())
+
+            stk = emu.stack()
+            if stk:
+                print("\nRPL stack (level 1 = top):")
+                for lvl, prolog, size, text in stk:
+                    print("  %d: prolog=%05x size=%-4d %s"
+                          % (lvl, prolog, size, text))
+            elif not emu._have_stack:
+                print("\n(stack read API not in this build; "
+                      "configure -DHP48_GX_ONLY=ON)")
     else:
         print("(pass a saved-state directory to load a ROM and run, "
               "e.g. ~/.hp48)")

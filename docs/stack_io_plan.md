@@ -35,35 +35,68 @@ Existing building blocks (all instance-aware via the `cpu` bridge):
 `docs/saturn.txt` is a CPU reference and does **not** cover this (its "stack"
 is the CPU return stack, RSTK).
 
+## Reference implementation (droid48 `binio.c`)
+
+A sibling emulator (droid48, `app/src/main/jni/binio.c`) already implements
+runtime stack read/write, and most of it ports onto libcalc48 directly because
+**we already have the building blocks**:
+
+| droid48 helper | libcalc48 equivalent (already present) |
+|---|---|
+| `Npeek(buf,addr,n)` (read nibbles) | `load_address(buf,addr,n)` — `actions.c`, uses `read_nibble` |
+| `Nwrite(buf,addr,n)` (write nibbles) | `store_n(addr,buf,n)` — `actions.c`, uses `write_nibble` |
+| `Read5(addr)` (read 20-bit ptr) | `load_addr(&v,addr,5)` — `actions.c` |
+| `RPL_ObjectSize()` (object length) | **port this** — solves R2; all prologue constants already in `rpl.h` |
+| prologue ids (`DOBINT`, `DOCSTR`, `SEMI`, …) | already in `libcalc48/include/rpl.h` (more complete than droid48) |
+| `DSKTOP`/`DSKBOT` | `debugger.c` (`DSKTOP_SX/GX`, `DSKBOT_SX/GX`) |
+| `TEMPOB`/`TEMPTOP`/`RSKTOP`/`AVMEM` | **GX only** (from droid48); SX `AVMEM` still unknown |
+
+droid48's memory-manager pointers are **GX**: `TEMPOB=0x806E9`,
+`TEMPTOP=0x806EE`, `RSKTOP=0x806F3`, `DSKTOP=0x806F8`, `AVMEM=0x807ED` (its
+`DSKTOP` matches our `DSKTOP_GX`). The first four are a consecutive run of
+5-nibble slots (`TEMPOB, TEMPTOP, RSKTOP, DSKTOP, DSKBOT`); `AVMEM` is not in
+that run. So for the WRITE side, the GX manager addresses are known but the SX
+`AVMEM` address still needs a real lookup — which is why the runtime stack I/O
+is built **GX-only** for now (CMake `HP48_GX_ONLY`).
+
 ## Phase R — READ (do first)
 
+**Status: implemented** (`libcalc48/src/rplstack.c`, `include/hp48_rpl.h`, behind
+`HP48_GX_ONLY`). `hp48_stack_depth`/`_addr`/`_object_prolog`/`_object_size`/
+`_read_object`/`_stack_describe` verified against a real `~/.hp48` state
+(HELLO/1234/777) and demonstrated from `examples/hp48.py`. The R2 fix vs droid48:
+bare `DOIDNT`/`DOLAM` names have no trailing object (size `7 + 2*chars`); only
+`DOTAG` carries one.
+
 ### R0. New core module
-Add `libcalc48/src/rplstack.c` + a public header (e.g. `hp48_rpl.h` in
-`libcalc48/include`, or fold prototypes into `hp48.h`). Wire into
-`libcalc48/CMakeLists.txt` `CORE_SOURCES`. Operates on the active instance.
+Add `libcalc48/src/rplstack.c` + a public header `hp48_rpl.h` in
+`libcalc48/include`. Wire into `libcalc48/CMakeLists.txt` `CORE_SOURCES`,
+**gated behind the `HP48_GX_ONLY` CMake option** (default OFF): the module is
+GX-only (see the reference-implementation note), so it is compiled only when the
+build declares a GX target. Operates on the active instance via the `cpu`
+bridge. The module defines the GX `DSKTOP`/`DSKBOT` constants locally (debugger.c
+keeps its own copies; deduping them is optional cleanup).
 
-Move/share the `DSKTOP_*`/`DSKBOT_*` constants (currently private to
-debugger.c) into the new module's header so both use one definition.
+### R1. Stack walk (refactor of do_stack)
+Internal helper that resolves `sp`, `end`, `depth` from the **GX** pointer
+addresses (`DSKTOP_GX`/`DSKBOT_GX`), guarding on `opt_gx` so a GX-only build that
+is handed an SX ROM fails safe (depth 0) rather than reading garbage.
+- `depth = (end - sp)/5 - 1`; the level-`i` object pointer is at `sp + 5*i`
+  (level 1 = top), exactly as `do_stack` walks it.
+- Mirror `do_stack`'s force/restore of `mem_cntl[1].config` to the known GX RAM
+  mapping (`0x80000`/`0xc0000`) around the reads, then restore — proven, and
+  side-effect free because it is restored.
 
-### R1. Stack walk (refactor of do_stack, no debugger I/O)
-Internal helper that resolves `sp`, `end`, `depth` for the active instance,
-choosing the SX vs GX pointer addresses from `opt_gx`.
-- Use the live `read_nibble` path (do **not** force `mem_cntl[1]` the way
-  do_stack does; that is only needed for a "cold" debugger read — a running
-  instance already has RAM configured).
-- Treat this as read-only and side-effect free.
-
-### R2. Object length / "skip object"  *(the hard part of READ)*
-To copy a whole object out, we need its total nibble length. Object size is
-type-dependent (prologue + body, with length encodings or a terminating SEMI
-for composites). Options:
-1. Extend the traversal logic already in `decode_rpl_obj` (rpl.c) to also
-   return a length — preferred, reuses working code.
-2. Implement a standalone `rpl_object_size(addr)` covering the standard
-   prologues (DOINT, DOREAL, DOCSTR/string, DOLIST/composite, DOCOL/program,
-   DOIDNT, DOARRY, ...).
-- First cut may support the common types and return "unknown" for the rest;
-  callers can still get the address, prologue, and decoded text.
+### R2. Object length / "skip object"  — *solved by porting droid48*
+Port droid48's `RPL_ObjectSize` as `rpl_object_size(word_20 addr)`, reading
+prologues straight from memory via `read_nibble` (no pre-loaded buffer). It
+switches on the prologue and recurses into composites (`DOLIST`/`DOCOL`/`DOSYMB`/
+`DOEXT` to `SEMI`), tagged/named objects (`DOIDNT`/`DOLAM`/`DOTAG`) and
+directories (`DORRP`); fixed-size types (reals, complex, char, …) and
+length-prefixed types (`DOCSTR`/`DOARRY`/`DOHSTR`/`DOGROB`/`DOCODE`/…) are
+table-direct. All the prologue constants it needs are already in `rpl.h`. Unknown
+prologues fall back to the 5-nibble prologue length (caller still gets the
+address + decoded text). Add a recursion-depth guard against corrupt data.
 
 ### R3. Public API surface
 ```c
