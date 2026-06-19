@@ -4,14 +4,21 @@ rpl_eval.py -- use the HP 48 emulator as a User RPL scripting engine.
 
 This turns libcalc48 into a callable RPL interpreter: you hand it User RPL
 *source text*, it drives the calculator's own parser (the `STR→` command) to
-compile and run it, and hands the results back as Python values.
+compile and run it, and hands back the full stack plus any error.
 
     from rpl_eval import Rpl
     rpl = Rpl()                       # boots ~/.hp48 (any SX or GX state)
-    rpl.eval("2 3 * 10 +")           # -> [16.0]
-    rpl.eval('"abc" DUP SIZE')       # -> ['abc', 3.0]
-    rpl.eval("<< DUP * >>")          # -> ['\\<< DUP * \\>>']  (compiled, not run)
-    rpl.eval("5 'A' STO")            # -> []   (no result; A now holds 5)
+
+    res = rpl.eval("2 3 * 10 +")     # Result(stack=[16.0], error=None)
+    res.stack[0]                     # 16.0   ("the result" = top of stack)
+    res.error                        # None
+
+    rpl.eval('"abc" 5 /').error      # RplError('Bad Argument Type', '# 202h')
+    rpl.eval1("2 3 +")               # 5.0    (convenience: top item, or raises)
+
+eval() returns the FULL stack (decoded, top first) so the caller can take the
+top item as its result or inspect the rest; errors are returned in .error
+(not raised).  The stack persists between calls (it's a live calculator).
 
 ASCII digraphs are translated to HP 48 characters so you can type plain ASCII:
 `<<`->`«`, `>>`->`»`, `->`->`→`, `<=`->`≤`, `>=`->`≥`, `!=`->`≠` (see
@@ -34,9 +41,15 @@ work.  Run directly for a REPL:
 import ctypes
 import os
 import sys
+from collections import namedtuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hp48 import Hp48  # noqa: E402
+
+# What eval() returns: the FULL stack (decoded, top first -> stack[0] is the
+# top/result) and the error (an RplError or None).  So a caller can always do
+# res.stack[0] for "the result", inspect the rest, and check res.error.
+Result = namedtuple("Result", "stack error")
 
 # Object prologs (see libcalc48/include/rpl.h)
 DOREAL, DOEREL, DOCSTR = 0x02933, 0x02955, 0x02a2c
@@ -167,16 +180,20 @@ class Rpl:
 
     # -- the scripting entry point ----------------------------------------
     def eval(self, src, translate=True):
-        """Compile + run User RPL `src`; return the new stack items (a list,
-        first result first).
+        """Compile + run User RPL `src`.  Returns a Result(stack, error):
 
-        Both kinds of failure raise RplError: a *syntax* error (the source
-        won't parse) and a *runtime* error (Bad Argument Type, Infinite Result,
-        ...).  Runtime errors are trapped with RPL's IFERR so the message
-        (RplError.message) and number (RplError.number) come back; e.message is
-        the calculator's text, e.g. 'Bad Argument Type'.  On error the items the
-        failed line pushed are dropped (depth restored to before the line); items
-        it had already mutated/consumed before erroring are not restored.
+          .stack -- the FULL stack afterwards, decoded, top first (so
+                    res.stack[0] is "the result"; the rest is below it).
+          .error -- None on success, else an RplError.  Both a *syntax* error
+                    (won't parse) and a *runtime* error (Bad Argument Type,
+                    Infinite Result, ...) are reported here, not raised -- the
+                    caller checks res.error.  RplError.message is the
+                    calculator's text; .number is the HP error number.
+
+        Runtime errors are trapped with RPL's IFERR; the items the failed line
+        pushed are then dropped (depth restored to before the line), so .stack
+        reflects a clean pre-line stack.  (Items it mutated/consumed before
+        erroring are not restored -- see the note below on full rollback.)
 
         With translate=True (default), ASCII digraphs in DIGRAPHS are converted
         to HP 48 characters first (e.g. << -> «, -> -> →)."""
@@ -201,7 +218,7 @@ class Rpl:
         if after == before + 1 and self.emu.read_object(1) == \
                 self._string_object(wrap_bytes):
             self._key(DROP); self._settle()
-            raise RplError("syntax error: %r" % src)
+            return Result(self.stack(), RplError("syntax error: %r" % src))
 
         flag = self._decode(1)             # 1.0 = trapped error, 0.0 = success
         if flag == 1.0:
@@ -213,22 +230,24 @@ class Rpl:
             # is back to its depth from before this line.
             while self.depth() > before:
                 self._key(DROP)
-            raise RplError(message, number)
+            return Result(self.stack(), RplError(message, number))
 
         self._drop(1)                      # the success flag
-        count = max(0, self.depth() - before)
-        return [self._decode(lvl) for lvl in range(count, 0, -1)]
+        return Result(self.stack(), None)
 
     def eval1(self, src):
-        """eval() but return just the top result (or None)."""
-        results = self.eval(src)
-        return results[-1] if results else None
+        """Convenience: return just the top result (stack[0]), or None if the
+        stack is empty.  Raises the RplError if `src` failed."""
+        res = self.eval(src)
+        if res.error:
+            raise res.error
+        return res.stack[0] if res.stack else None
 
     # -- whole-stack views -------------------------------------------------
     def stack(self):
-        """Return the whole stack as decoded Python values, level 1 (top) last."""
+        """The whole stack as decoded Python values, top first (level 1 = [0])."""
         d = self.depth()
-        return [self._decode(lvl) for lvl in range(d, 0, -1)]
+        return [self._decode(lvl) for lvl in range(1, d + 1)]
 
     def _level_text(self, level):
         """The calculator's representation of a level (string quoted, « », ...)."""
@@ -268,19 +287,21 @@ def _demo(rpl):
                 '"abc" 5 /',                 # runtime error: Bad Argument Type
                 '5 0 /',                     # runtime error: Infinite Result
                 '1 2 )'):                    # syntax error
-        try:
-            print("  %-22s -> %r" % (src, rpl.eval(src)))
-        except RplError as e:
-            print("  %-22s -> ERROR (%s)" % (src, e))
+        rpl.clear()                        # independent line; show its own stack
+        res = rpl.eval(src)
+        if res.error:
+            print("  %-22s -> error: %s" % (src, res.error))
+        else:
+            print("  %-22s -> %r" % (src, res.stack))
 
 
 def main(argv):
     with Rpl() as rpl:
         if len(argv) > 1:                  # one-shot: evaluate the argument
-            try:
-                print(rpl.eval(argv[1]))
-            except RplError as e:
-                print("error:", e); return 1
+            res = rpl.eval(argv[1])
+            if res.error:
+                print("error:", res.error); return 1
+            print(res.stack)
             return 0
 
         print("RPL scripting demo (emulator as interpreter):")
@@ -303,10 +324,9 @@ def main(argv):
                     rpl.show(limit=None); continue
                 if not line:
                     continue
-                try:
-                    rpl.eval(line)          # mutates the persistent stack
-                except RplError as e:
-                    print("  error:", e)
+                res = rpl.eval(line)        # mutates the persistent stack
+                if res.error:
+                    print("  error:", res.error)
                 rpl.show()                  # show the resulting stack
     return 0
 
