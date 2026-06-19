@@ -10,8 +10,13 @@ compile and run it, and hands the results back as Python values.
     rpl = Rpl()                       # boots ~/.hp48 (any SX or GX state)
     rpl.eval("2 3 * 10 +")           # -> [16.0]
     rpl.eval('"abc" DUP SIZE')       # -> ['abc', 3.0]
-    rpl.eval("« DUP * »")            # -> ['\\<< DUP * \\>>']  (compiled, not run)
+    rpl.eval("<< DUP * >>")          # -> ['\\<< DUP * \\>>']  (compiled, not run)
     rpl.eval("5 'A' STO")            # -> []   (no result; A now holds 5)
+
+ASCII digraphs are translated to HP 48 characters so you can type plain ASCII:
+`<<`->`«`, `>>`->`»`, `->`->`→`, `<=`->`≤`, `>=`->`≥`, `!=`->`≠` (see
+Rpl.DIGRAPHS; extend it as you like).  Translation skips the inside of "..."
+string literals, and you can disable it per call with eval(src, translate=False).
 
 How it works: the source is pushed as a string object (hp48_push_string), then
 `STR→` is run by key injection (the calc's parser, version-independent), and the
@@ -48,6 +53,18 @@ class RplError(Exception):
 
 class Rpl:
     """An HP 48 instance you can script with User RPL source strings."""
+
+    # ASCII digraphs -> HP 48 single-character codes, so you can type plain
+    # ASCII instead of the special glyphs.  Applied to source by eval() (outside
+    # string literals).  Extend as needed: Rpl.DIGRAPHS["->>"] = 0x...
+    DIGRAPHS = {
+        "<<": 0xAB,   # «  (program start)
+        ">>": 0xBB,   # »  (program end)
+        "->": 0x8D,   # →  (→GROB, →LIST, →NUM, local vars, ...)
+        "<=": 0x89,   # ≤
+        ">=": 0x8A,   # ≥
+        "!=": 0x8B,   # ≠
+    }
 
     def __init__(self, state_dir="~/.hp48", lib=None):
         self.emu = Hp48(lib)
@@ -114,10 +131,36 @@ class Rpl:
             out += [c & 0xf, (c >> 4) & 0xf]
         return bytes(out)
 
+    def _translate(self, src):
+        """Replace ASCII digraphs (<<, >>, ->, ...) with the HP 48 single
+        characters, leaving the contents of "..." string literals untouched.
+        Longest match wins, so >> and >= don't collide."""
+        keys = sorted(self.DIGRAPHS, key=len, reverse=True)
+        out = []
+        i, n, in_str = 0, len(src), False
+        while i < n:
+            c = src[i]
+            if c == '"':
+                in_str = not in_str
+                out.append(c); i += 1; continue
+            if not in_str:
+                for k in keys:
+                    if src.startswith(k, i):
+                        out.append(chr(self.DIGRAPHS[k])); i += len(k); break
+                else:
+                    out.append(c); i += 1
+                continue
+            out.append(c); i += 1
+        return "".join(out)
+
     # -- the scripting entry point ----------------------------------------
-    def eval(self, src):
+    def eval(self, src, translate=True):
         """Compile + run User RPL `src`; return the new stack items (a list,
-        first result first).  Raises RplError on a parse/compile failure."""
+        first result first).  Raises RplError on a parse/compile failure.
+        With translate=True (default), ASCII digraphs in DIGRAPHS are converted
+        to HP 48 characters first (e.g. << -> «, -> -> →)."""
+        if translate:
+            src = self._translate(src)
         self._key(ON)                      # clear any prior error / edit state
         self._settle()
         src_bytes = src.encode("latin-1")
@@ -154,8 +197,12 @@ class Rpl:
 
 
 def _demo(rpl):
-    for src in ('2 3 * 10 +', '"abc" DUP SIZE', '« DUP * » 7 SWAP EVAL',
-                '{ 1 2 3 } REVLIST', '30 SIN', '1 2 )'):   # last = syntax error
+    for src in ('2 3 * 10 +', '"abc" DUP SIZE',
+                '<< DUP * >> 9 SWAP EVAL',   # ASCII << >> -> « »
+                '1 2 3 3 ->LIST',            # ASCII -> -> →
+                '3 5 <=  4 4 !=',            # ASCII <= != -> ≤ ≠
+                '"keep <- as-is" SIZE',      # digraph inside a string: untouched
+                '1 2 )'):                    # last = syntax error
         try:
             print("  %-22s -> %r" % (src, rpl.eval(src)))
         except RplError as e:
