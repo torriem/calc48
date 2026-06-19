@@ -138,3 +138,28 @@ How `sdl/src/x48_sdl.c` maps host keys to HP 48 keys.
 | `Left/Right Shift` | SHL (left shift) | `0x25` |
 | `Left/Right Ctrl` | SHR (right shift) | `0x15` |
 | `Left/Right Alt` | ALPHA | `0x35` |
+
+## Typing commands headlessly (key injection)
+
+The shift/ALPHA keys are *sticky* (one-shot): press SHL/SHR/ALPHA, then the next
+key is shifted/alpha. So any command name can be entered with
+`hp48_press_key`/`hp48_release_key` by spelling it in ALPHA — letter `L` is
+`ALPHA` (`0x35`) followed by the matrix code for `L` from the PC-binding table
+above (e.g. `G`=`0x24`, `R`=`0x60`, `O`=`0x63`, `B`=`0x84`).
+
+The arrow `→` (as in `→GROB`, `→LCD`, `→NUM`) is **right-shift of `0` in alpha
+mode**: `ALPHA 0x35`, `SHR 0x15`, `0 0x03`. So `→GROB` is the sequence:
+
+```
+0x35 0x15 0x03   →            (alpha, right-shift, 0)
+0x35 0x24        G
+0x35 0x60        R
+0x35 0x63        O
+0x35 0x84        B
+```
+
+followed by `ENTER` (`0x44`). Verified to execute `→GROB` from a headless
+harness — a ROM-version-independent way to drive built-in commands without
+needing their ROM addresses. (`tools/extract_fonts.py` uses the
+push-program + EVAL route instead, but this keyboard route is the simpler
+alternative.)

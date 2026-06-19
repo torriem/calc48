@@ -12,10 +12,13 @@ Three font sizes are captured:
     →GROB size 3 -> "large"
 
 How it works (see docs/stack_io_plan.md for the stack API it builds on):
-  * `→GROB` can't be typed headlessly (it needs the `→` key), and a compiled
-    call to it is ROM-version specific.  So the tool is *self-calibrating*: put
-    the program  « →GROB »  on stack level 1 first; the tool reads it back and
-    lifts out the exact compiled word-sequence for `→GROB` on your ROM.
+  * A compiled call to `→GROB` is ROM-version specific, so the tool is
+    *self-calibrating*: put the program  « →GROB »  on stack level 1 first; the
+    tool reads it back and lifts out the exact compiled word-sequence for
+    `→GROB` on your ROM.
+    (Aside: `→GROB` *can* also be typed by key injection -- `→` is alpha +
+    right-shift + `0`; see docs/keymap.md -- which would avoid the calibration
+    step entirely.  This tool uses the push-program + EVAL route instead.)
   * For each character it then builds, in memory, the program
         « "<char>" <size> →GROB »
     (string + real literals we encode ourselves, followed by that word
