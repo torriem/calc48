@@ -48,7 +48,15 @@ STR_TO_KEYS = [ALPHA, 0x34, ALPHA, 0x54, ALPHA, 0x60, ALPHA, SHR, 0x03, ENTER]
 
 
 class RplError(Exception):
-    """The calculator rejected the source (syntax error, etc.)."""
+    """An RPL error: a syntax error, or a trapped runtime error.
+
+    .message -- the calculator's text (e.g. 'Bad Argument Type'); .number --
+    the HP error number for runtime errors (e.g. '#203h'), else None."""
+
+    def __init__(self, message, number=None):
+        super().__init__(message if not number else "%s (%s)" % (message, number))
+        self.message = message
+        self.number = number
 
 
 class Rpl:
@@ -94,6 +102,10 @@ class Rpl:
         for _ in range(500):
             if self.depth() <= 0:
                 break
+            self._key(DROP)
+
+    def _drop(self, n):
+        for _ in range(n):
             self._key(DROP)
 
     # -- result decoding ---------------------------------------------------
@@ -156,29 +168,55 @@ class Rpl:
     # -- the scripting entry point ----------------------------------------
     def eval(self, src, translate=True):
         """Compile + run User RPL `src`; return the new stack items (a list,
-        first result first).  Raises RplError on a parse/compile failure.
+        first result first).
+
+        Both kinds of failure raise RplError: a *syntax* error (the source
+        won't parse) and a *runtime* error (Bad Argument Type, Infinite Result,
+        ...).  Runtime errors are trapped with RPL's IFERR so the message
+        (RplError.message) and number (RplError.number) come back; e.message is
+        the calculator's text, e.g. 'Bad Argument Type'.  On error the items the
+        failed line pushed are dropped (depth restored to before the line); items
+        it had already mutated/consumed before erroring are not restored.
+
         With translate=True (default), ASCII digraphs in DIGRAPHS are converted
         to HP 48 characters first (e.g. << -> «, -> -> →)."""
         if translate:
             src = self._translate(src)
         self._key(ON)                      # clear any prior error / edit state
         self._settle()
-        src_bytes = src.encode("latin-1")
+
+        # Wrap in an error trap.  On error: roll back, push  ERRN ERRM 1.
+        # On success: push 0.  The flag at level 1 tells us which happened.
+        wrapped = "IFERR " + src + " THEN ERRN ERRM 1 ELSE 0 END"
+        wrap_bytes = wrapped.encode("latin-1")
         before = self.depth()
-        if not self.emu.push_string(src):
+        if not self.emu.push_string(wrapped):
             raise RplError("could not push source onto the stack")
         for k in STR_TO_KEYS:
             self._key(k)
         self._settle(12)
         after = self.depth()
 
-        # Syntax error: STR→ leaves the source string untouched on top.
+        # Syntax error: STR→ left the (whole wrapped) source unparsed on top.
         if after == before + 1 and self.emu.read_object(1) == \
-                self._string_object(src_bytes):
+                self._string_object(wrap_bytes):
             self._key(DROP); self._settle()
-            raise RplError("STR→ rejected: %r" % src)
+            raise RplError("syntax error: %r" % src)
 
-        count = max(0, after - before)
+        flag = self._decode(1)             # 1.0 = trapped error, 0.0 = success
+        if flag == 1.0:
+            message = self._decode(2)      # ERRM (error message string)
+            number = self._describe(3).split("] ", 1)[-1]   # ERRN (e.g. #203h)
+            self._drop(3)                  # flag, ERRM, ERRN
+            # IFERR catches the error but doesn't unwind the stack, so the
+            # failed line may have left partial items -- drop them so the stack
+            # is back to its depth from before this line.
+            while self.depth() > before:
+                self._key(DROP)
+            raise RplError(message, number)
+
+        self._drop(1)                      # the success flag
+        count = max(0, self.depth() - before)
         return [self._decode(lvl) for lvl in range(count, 0, -1)]
 
     def eval1(self, src):
@@ -227,8 +265,9 @@ def _demo(rpl):
                 '<< DUP * >> 9 SWAP EVAL',   # ASCII << >> -> « »
                 '1 2 3 3 ->LIST',            # ASCII -> -> →
                 '3 5 <=  4 4 !=',            # ASCII <= != -> ≤ ≠
-                '"keep <- as-is" SIZE',      # digraph inside a string: untouched
-                '1 2 )'):                    # last = syntax error
+                '"abc" 5 /',                 # runtime error: Bad Argument Type
+                '5 0 /',                     # runtime error: Infinite Result
+                '1 2 )'):                    # syntax error
         try:
             print("  %-22s -> %r" % (src, rpl.eval(src)))
         except RplError as e:
