@@ -186,6 +186,32 @@ class Rpl:
         results = self.eval(src)
         return results[-1] if results else None
 
+    # -- whole-stack views -------------------------------------------------
+    def stack(self):
+        """Return the whole stack as decoded Python values, level 1 (top) last."""
+        d = self.depth()
+        return [self._decode(lvl) for lvl in range(d, 0, -1)]
+
+    def _level_text(self, level):
+        """The calculator's representation of a level (string quoted, « », ...)."""
+        t = self._describe(level)
+        t = t.split("] ", 1)[1] if "] " in t else t
+        return t.replace("\\<<", "«").replace("\\>>", "»").replace("\\->", "→")
+
+    def show(self, limit=8):
+        """Print the stack like a calculator: top `limit` levels, level 1 at the
+        bottom (set limit=None for the whole stack)."""
+        d = self.depth()
+        if d == 0:
+            print("  (empty stack)")
+            return
+        start = d if (limit is None or d <= limit) else limit
+        if start < d:
+            print("   ⋮  (%d deeper level%s not shown)"
+                  % (d - start, "" if d - start == 1 else "s"))
+        for lvl in range(start, 0, -1):
+            print("  %d: %s" % (lvl, self._level_text(lvl)))
+
     def close(self):
         self.emu.destroy()
 
@@ -222,7 +248,9 @@ def main(argv):
         _demo(rpl)
 
         if sys.stdin.isatty():             # interactive REPL
-            print("\nREPL -- type User RPL, or 'stack' / 'clear' / 'quit'.")
+            print("\nREPL -- User RPL (ASCII << >> -> ok); 'stack' / 'clear' / "
+                  "'quit'.  The stack persists between lines.")
+            rpl.show()
             while True:
                 try:
                     line = input("rpl> ").strip()
@@ -231,16 +259,16 @@ def main(argv):
                 if line in ("quit", "exit"):
                     break
                 if line == "clear":
-                    rpl.clear(); continue
+                    rpl.clear(); rpl.show(); continue
                 if line == "stack":
-                    print("  depth", rpl.depth()); continue
+                    rpl.show(limit=None); continue
                 if not line:
                     continue
                 try:
-                    for v in rpl.eval(line):
-                        print("  ", repr(v))
+                    rpl.eval(line)          # mutates the persistent stack
                 except RplError as e:
                     print("  error:", e)
+                rpl.show()                  # show the resulting stack
     return 0
 
 
