@@ -4,7 +4,8 @@ calc48.py -- a command-line HP 48 RPL calculator (built on libcalc48).
 
 Two modes, chosen automatically:
   * Piped/redirected input: each line of stdin is evaluated, then the resulting
-    stack is printed.
+    stack is printed.  The first error aborts with a message on stderr and a
+    non-zero exit code.
         echo "2 3 + 4 *" | python3 examples/calc48.py        # -> 1: 20
         python3 examples/calc48.py < script.rpl
   * A terminal (no piped input): an interactive REPL with a "calc48>" prompt
@@ -420,15 +421,18 @@ def _repl(rpl):
 
 
 def _filter(rpl):
-    """Evaluate each line of stdin, then print the resulting stack."""
-    for line in sys.stdin:
-        line = line.strip()
+    """Evaluate each line of stdin; print the resulting stack at EOF.  On the
+    first error, report it to stderr and bail out with a non-zero exit code."""
+    for lineno, raw in enumerate(sys.stdin, 1):
+        line = raw.strip()
         if not line:
             continue
         res = rpl.eval(line)
         if res.error:
-            print("error: %s" % res.error, file=sys.stderr)
+            print("calc48: line %d: %s" % (lineno, res.error), file=sys.stderr)
+            return 1
     rpl.show(limit=None)
+    return 0
 
 
 def main(argv):
@@ -440,9 +444,8 @@ def main(argv):
     with engine as rpl:
         if sys.stdin.isatty():             # a terminal -> interactive REPL
             _repl(rpl)
-        else:                              # piped/redirected input -> filter
-            _filter(rpl)
-    return 0
+            return 0
+        return _filter(rpl)                # piped/redirected input -> filter
 
 
 if __name__ == "__main__":
