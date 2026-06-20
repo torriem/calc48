@@ -7,7 +7,9 @@ This turns libcalc48 into a callable RPL interpreter: you hand it User RPL
 compile and run it, and hands back the full stack plus any error.
 
     from rpl_eval import Rpl
-    rpl = Rpl()                       # boots ~/.hp48 (any SX or GX state)
+    rpl = Rpl()        # pristine GX calc: embedded blank RAM + a ROM found via
+                       # find_rom() ($HP48_ROM, else <config_dir>/rom).  Each
+                       # instance is independent and nothing is ever saved.
 
     res = rpl.eval("2 3 * 10 +")     # Result(stack=[16.0], error=None)
     res.stack[0]                     # 16.0   ("the result" = top of stack)
@@ -41,13 +43,73 @@ work.  Run directly for a REPL:
     python3 examples/rpl_eval.py "2 3 + 4 *"     # one-shot
 """
 
+import base64
 import ctypes
+import gzip
 import os
 import sys
 from collections import namedtuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hp48 import Hp48  # noqa: E402
+from hp48 import Hp48          # noqa: E402
+# _blank_state (the embedded blank GX RAM/CPU image) is imported lazily in
+# __init__ -- it is ROM-derived and generated locally by tools/make_blank_state.py
+# rather than committed, so rpl_eval must import cleanly without it.
+
+ROM_URL = "https://www.hpcalc.org/details/4524"
+
+
+def config_dir(app="hp48"):
+    """Cross-platform per-user config dir (stdlib; XDG on Unix)."""
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    elif sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    else:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.join(base, app)
+
+
+def find_rom():
+    """The HP 48 ROM path: $HP48_ROM, else <config_dir>/rom.  None if missing."""
+    for cand in (os.environ.get("HP48_ROM"), os.path.join(config_dir(), "rom")):
+        if cand and os.path.isfile(cand):
+            return cand
+    return None
+
+
+class RomNotFoundError(Exception):
+    """No ROM found; .message tells the user where to get and put one."""
+
+    def __init__(self):
+        rom = os.path.join(config_dir(), "rom")
+        self.message = (
+            "HP 48 ROM not found.\n"
+            "Download the HP 48GX ROM from:\n    %s\n"
+            "and save the ROM image as:\n    %s\n"
+            "(or set HP48_ROM=/path/to/rom)" % (ROM_URL, rom))
+        super().__init__(self.message)
+
+
+# ---- in-memory storage provider (hp48_io_t) -------------------------------
+# The core pulls each resource (rom/hp48/ram/...) through these callbacks and
+# copies it in; we serve the ROM file + the embedded blank RAM/CPU image, and
+# never save.  The load callback must return a buffer the core frees with C
+# free(), so allocate it with the C runtime's malloc.
+_LOADCB = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_char_p,
+                           ctypes.POINTER(ctypes.POINTER(ctypes.c_ubyte)),
+                           ctypes.POINTER(ctypes.c_size_t))
+_SAVECB = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_char_p,
+                           ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t)
+
+
+class _Hp48Io(ctypes.Structure):
+    _fields_ = [("user", ctypes.c_void_p), ("load", _LOADCB), ("save", _SAVECB)]
+
+
+_libc = ctypes.CDLL(None)       # process libc (glibc / macOS libSystem)
+_libc.malloc.restype = ctypes.c_void_p
+_libc.malloc.argtypes = [ctypes.c_size_t]
 
 # What eval() returns: the FULL stack (decoded, top first -> stack[0] is the
 # top/result) and the error (an RplError or None).  So a caller can always do
@@ -105,16 +167,67 @@ class Rpl:
         r"\>>": 0xbb, r"\.x": 0xd7, r"\O/": 0xd8,
     }
 
-    def __init__(self, state_dir="~/.hp48", lib=None):
+    def __init__(self, state_dir=None, rom=None, lib=None):
+        """By default (state_dir=None) boot a *pristine* calculator: the ROM is
+        located via find_rom() and the RAM/CPU state comes from the embedded
+        blank GX image -- so every instance is independent and nothing is ever
+        saved.  Pass state_dir to load a full saved-state directory instead
+        (used by tools that build the blank image)."""
         self.emu = Hp48(lib)
         if not self.emu._have_stack:
             raise RuntimeError("libcalc48 built without HP48_WITH_STACK_IO")
-        if self.emu.load_state(os.path.expanduser(state_dir)) != 0:
-            raise RuntimeError("could not load state from %s" % state_dir)
+        if state_dir is not None:
+            if self.emu.load_state(os.path.expanduser(state_dir)) != 0:
+                raise RuntimeError("could not load state from %s" % state_dir)
+        else:
+            rom_path = rom or find_rom()
+            if not rom_path:
+                raise RomNotFoundError()
+            try:
+                import _blank_state
+            except ImportError:
+                raise RuntimeError(
+                    "no embedded blank image; generate it with "
+                    "tools/make_blank_state.py")
+            self._load_blobs({
+                "rom":  open(rom_path, "rb").read(),
+                "hp48": gzip.decompress(base64.b64decode(_blank_state.HP48_GZ_B64)),
+                "ram":  gzip.decompress(base64.b64decode(_blank_state.RAM_GZ_B64)),
+            })
         self.emu.start()
         self.emu.display_init()
         self._settle(20)
         self.clear()                       # start from an empty stack
+
+    def _load_blobs(self, blobs):
+        """Install an in-memory hp48_io_t that serves `blobs` (name -> bytes)
+        and never saves, then have the core read the state from them."""
+        def load(user, name, data_pp, len_p):
+            blob = blobs.get(name.decode("latin-1"))
+            if blob is None:
+                return -1                  # absent (ports) / required -> error
+            n = len(blob)
+            buf = _libc.malloc(n if n else 1)
+            if not buf:
+                return -1
+            if n:
+                ctypes.memmove(buf, blob, n)
+            data_pp[0] = ctypes.cast(buf, ctypes.POINTER(ctypes.c_ubyte))
+            len_p[0] = n
+            return 0
+
+        def save(user, name, data, n):
+            return 0                       # rpl_eval never persists
+
+        self._io_load = _LOADCB(load)      # keep these alive for the instance
+        self._io_save = _SAVECB(save)
+        self._io = _Hp48Io(None, self._io_load, self._io_save)
+        L = self.emu._lib
+        L.hp48_set_io.argtypes = [ctypes.POINTER(_Hp48Io)]
+        L.read_files.restype = ctypes.c_int
+        L.hp48_set_io(ctypes.byref(self._io))
+        if L.read_files() != 0:
+            raise RuntimeError("read_files() failed to load the embedded image")
 
     # -- low-level driving -------------------------------------------------
     def _settle(self, n=6):
@@ -317,7 +430,12 @@ def _demo(rpl):
 
 
 def main(argv):
-    with Rpl() as rpl:
+    try:
+        rpl_cm = Rpl()
+    except RomNotFoundError as e:
+        print(e.message)
+        return 2
+    with rpl_cm as rpl:
         if len(argv) > 1:                  # one-shot: evaluate the argument
             res = rpl.eval(argv[1])
             if res.error:

@@ -14,3 +14,6 @@
 # Python
 __pycache__/
 *.pyc
+
+# ROM-derived blank state for rpl_eval (regenerate with tools/make_blank_state.py)
+examples/_blank_state.py

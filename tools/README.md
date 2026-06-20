@@ -2,6 +2,23 @@
 
 Helper scripts for libcalc48 (not built into the library).
 
+## make_blank_state.py — build the embedded blank state for rpl_eval
+
+`examples/rpl_eval.py` boots a *pristine* calculator from a user-supplied ROM
+plus an **embedded blank RAM/CPU image** (a cold boot from zeroed RAM doesn't
+reach a usable state headlessly).  That image is ROM-revision specific and
+**not committed** (it's ROM-derived — `examples/_blank_state.py` is gitignored),
+so generate it locally:
+
+```sh
+HP48_LIB=build/libcalc48.so python3 tools/make_blank_state.py ~/.hp48
+```
+
+It loads a *seed* saved-state dir (a working calc of the same ROM revision),
+clears the stack + purges all HOME variables, and writes the `hp48`+`ram` blobs
+(gzip+base64) into `examples/_blank_state.py`.  The ROM is never written.
+Re-run it whenever your ROM revision changes.
+
 ## extract_fonts.py — dump the HP 48 GX system fonts
 
 Drives the emulator to render every character through the calculator's own
