@@ -251,6 +251,8 @@ GPL v2 or later (inherited from x48). See the headers in each source file.
 - `../examples/hp48.py` — full Python `ctypes` binding (display + stack).
 - `../examples/rpl_eval.py` — use the emulator as a User RPL scripting engine
   (feed source text, get Python values back) + a REPL.
+- `../examples/calc48.py` — a command-line RPL calculator built on it: pipe RPL
+  on stdin to evaluate and print the stack, or run with no input for a REPL.
 - `../examples/ffi_smoke.c` — minimal headless embedding (links only libcalc48).
 - `../docs/keymap.md` — key-matrix codes and PC-keyboard mapping.
 - `../docs/stack_io_plan.md` — RPL stack read/write design and internals.
