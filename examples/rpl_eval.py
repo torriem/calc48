@@ -118,6 +118,7 @@ Result = namedtuple("Result", "stack error")
 
 # Object prologs (see libcalc48/include/rpl.h)
 DOREAL, DOEREL, DOCSTR = 0x02933, 0x02955, 0x02a2c
+DOHSTR, DOSYMB = 0x02a4e, 0x02ab8       # binary integer, algebraic/symbolic
 
 # Key matrix codes (see docs/keymap.md).  Letters = ALPHA then the key.
 ALPHA, SHR, ENTER, DROP, ON = 0x35, 0x15, 0x44, 0x40, 0x8000
@@ -258,11 +259,36 @@ class Rpl:
         n = self.emu._lib.hp48_stack_describe(level, buf, len(buf))
         return buf.value.decode("latin-1") if n >= 0 else ""
 
+    def _calc_str(self, level):
+        """The calculator's OWN display string for a stack level, via `→STR`.
+        Used for binary integers and algebraics so they show in the live base /
+        as infix (matching the real calc) rather than our raw hex/RPN decode.
+        Returns the text, or None on failure; always restores the stack."""
+        d = self.depth()
+        # "<level> PICK →STR": copy the level to the top and stringify it.
+        if not self.emu.push_string("%d PICK %cSTR" % (level, 0x8d)):
+            return None
+        for k in STR_TO_KEYS:
+            self._key(k)
+        self._settle(8)
+        text = None
+        if (self.depth() == d + 1 and self.emu._lib.hp48_object_prolog(
+                self.emu._lib.hp48_stack_addr(1)) == DOCSTR):
+            text = self._decode(1)         # the →STR result string's contents
+        while self.depth() > d:            # restore the stack
+            self._key(DROP)
+        return text
+
     def _decode(self, level):
-        """Return a Python value for the object at `level`:
-        Real -> float, String -> str, everything else -> its RPL text."""
+        """Return a Python value for the object at `level`: Real -> float,
+        String -> str, binary integer / algebraic -> the calc's own display
+        text (live base / infix, via →STR), everything else -> its RPL text."""
         addr = self.emu._lib.hp48_stack_addr(level)
         prolog = self.emu._lib.hp48_object_prolog(addr)
+        if prolog in (DOHSTR, DOSYMB):
+            s = self._calc_str(level)
+            if s is not None:
+                return s
         text = self._describe(level)
         data = text.split("] ", 1)[1] if "] " in text else text
         if prolog in (DOREAL, DOEREL):
@@ -384,7 +410,15 @@ class Rpl:
         return [self._decode(lvl) for lvl in range(1, d + 1)]
 
     def _level_text(self, level):
-        """The calculator's representation of a level (string quoted, « », ...)."""
+        """The calculator's representation of a level (string quoted, « », ...).
+        Binary integers and algebraics go through →STR so they show in the live
+        base / as infix, matching the real calc."""
+        prolog = self.emu._lib.hp48_object_prolog(
+            self.emu._lib.hp48_stack_addr(level))
+        if prolog in (DOHSTR, DOSYMB):
+            s = self._calc_str(level)
+            if s is not None:
+                return s
         t = self._describe(level)
         t = t.split("] ", 1)[1] if "] " in t else t
         return t.replace("\\<<", "«").replace("\\>>", "»").replace("\\->", "→")
