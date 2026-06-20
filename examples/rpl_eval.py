@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 rpl_eval.py -- use the HP 48 emulator as a User RPL scripting engine.
 
 This turns libcalc48 into a callable RPL interpreter: you hand it User RPL
@@ -20,10 +20,13 @@ eval() returns the FULL stack (decoded, top first) so the caller can take the
 top item as its result or inspect the rest; errors are returned in .error
 (not raised).  The stack persists between calls (it's a live calculator).
 
-ASCII digraphs are translated to HP 48 characters so you can type plain ASCII:
-`<<`->`«`, `>>`->`»`, `->`->`→`, `<=`->`≤`, `>=`->`≥`, `!=`->`≠` (see
-Rpl.DIGRAPHS; extend it as you like).  Translation skips the inside of "..."
-string literals, and you can disable it per call with eval(src, translate=False).
+Two input conveniences are translated to HP 48 characters before compiling:
+  * ASCII digraphs: `<<`->`«`, `>>`->`»`, `->`->`→`, `<=`->`≤`, `>=`->`≥`,
+    `!=`->`≠`  (Rpl.DIGRAPHS).
+  * HP 48 backslash escapes (the same ones ->STR / ASCII transfer use, so input
+    matches output): `\pi`->π, `\GS`->Σ, `\Gd`->δ, `\oo`->∞, `\->`->→, ...
+    (Rpl.NAMED).  E.g.  rpl.eval(r"2 \pi * ->NUM")  ->  [6.2831853...].
+Both skip the inside of "..." string literals; disable with translate=False.
 
 How it works: the source is pushed as a string object (hp48_push_string), then
 `STR→` is run by key injection (the calc's parser, version-independent), and the
@@ -85,6 +88,21 @@ class Rpl:
         "<=": 0x89,   # ≤
         ">=": 0x8A,   # ≥
         "!=": 0x8B,   # ≠
+    }
+
+    # HP 48 backslash escapes for special characters (the same ones the calc's
+    # ASCII-transfer format and ->STR use, so input matches output).  STR→ does
+    # NOT decode these itself, so eval() converts them to the HP byte.  Harvested
+    # from the ROM via ->STR; codes are the HP 48 character set.  Type e.g.
+    # "\pi" to push π, "2 \pi *", "\GS" for Σ, "\oo" for ∞.
+    NAMED = {
+        r"\<":  0x80, r"\x-": 0x81, r"\.V": 0x82, r"\v/": 0x83, r"\.S": 0x84,
+        r"\GS": 0x85, r"\pi": 0x87, r"\.d": 0x88, r"\<=": 0x89, r"\>=": 0x8a,
+        r"\=/": 0x8b, r"\Ga": 0x8c, r"\->": 0x8d, r"\<-": 0x8e, r"\Gg": 0x91,
+        r"\Gd": 0x92, r"\Ge": 0x93, r"\Gn": 0x94, r"\Gh": 0x95, r"\Gl": 0x96,
+        r"\Gr": 0x97, r"\Gs": 0x98, r"\Gt": 0x99, r"\Gw": 0x9a, r"\GD": 0x9b,
+        r"\PI": 0x9c, r"\GW": 0x9d, r"\oo": 0x9f, r"\<<": 0xab, r"\Gm": 0xb5,
+        r"\>>": 0xbb, r"\.x": 0xd7, r"\O/": 0xd8,
     }
 
     def __init__(self, state_dir="~/.hp48", lib=None):
@@ -157,10 +175,13 @@ class Rpl:
         return bytes(out)
 
     def _translate(self, src):
-        """Replace ASCII digraphs (<<, >>, ->, ...) with the HP 48 single
-        characters, leaving the contents of "..." string literals untouched.
-        Longest match wins, so >> and >= don't collide."""
-        keys = sorted(self.DIGRAPHS, key=len, reverse=True)
+        """Replace ASCII digraphs (<<, >>, ->, ...) and HP 48 backslash escapes
+        (\\pi, \\GS, \\oo, ...) with the HP 48 single characters, leaving the
+        contents of "..." string literals untouched.  Longest match wins, so
+        >> vs >=, and \\<< vs \\<, don't collide."""
+        subs = dict(self.DIGRAPHS)
+        subs.update(self.NAMED)
+        keys = sorted(subs, key=len, reverse=True)
         out = []
         i, n, in_str = 0, len(src), False
         while i < n:
@@ -171,7 +192,7 @@ class Rpl:
             if not in_str:
                 for k in keys:
                     if src.startswith(k, i):
-                        out.append(chr(self.DIGRAPHS[k])); i += len(k); break
+                        out.append(chr(subs[k])); i += len(k); break
                 else:
                     out.append(c); i += 1
                 continue
