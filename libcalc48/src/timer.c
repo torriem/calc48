@@ -156,8 +156,6 @@ set_accesstime(void)
   time_t	  gmt;
   struct tm	 *ltm;
 
-printf("***set_accesstime***\n");
-
   /*
    * Determine the local UTC offset so the calculator clock shows local time.
    */
