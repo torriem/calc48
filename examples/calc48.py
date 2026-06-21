@@ -14,8 +14,19 @@ Two modes, chosen automatically:
 
 It needs the HP 48 ROM -- found via $HP48_ROM, else <config_dir>/hp48/rom -- and
 the embedded blank state (build it once with tools/make_blank_state.py).  If the
-ROM is missing it prints where to download and place it.  Every run is a
-pristine, independent calculator; nothing is ever saved.
+ROM is missing it prints where to download and place it.
+
+By default every run is a pristine, independent calculator and nothing is saved.
+To work in a persistent *profile* (its own hp48 + ram, separate from the ROM):
+
+    -s/--state DIR   load the state (hp48 + ram) from DIR instead of the blank
+                     image -- read-only by default
+    -w/--save        on clean exit, write the state back to that DIR (requires
+                     --state); the way to build up / update a profile
+
+So `--state DIR` alone runs an existing profile read-only; `--state DIR --save`
+loads it (or starts blank if DIR has no state yet) and persists changes on exit.
+In filter mode the save is skipped if the run aborts on an error.
 
 Input conveniences (translated to HP 48 characters before compiling; both skip
 the inside of "..." string literals):
@@ -27,6 +38,7 @@ the inside of "..." string literals):
 The RPL engine itself (the Rpl class) is the same one documented in rpl_eval.py.
 Requires libcalc48 built with HP48_WITH_STACK_IO (the default)."""
 
+import argparse
 import base64
 import ctypes
 import gzip
@@ -152,15 +164,21 @@ class Rpl:
         r"\>>": 0xbb, r"\.x": 0xd7, r"\O/": 0xd8,
     }
 
-    def __init__(self, state_dir=None, rom=None, lib=None):
-        """By default (state_dir=None) boot a *pristine* calculator: the ROM is
-        located via find_rom() and the RAM/CPU state comes from the embedded
-        blank GX image -- so every instance is independent and nothing is ever
-        saved.  Pass state_dir to load a full saved-state directory instead
-        (used by tools that build the blank image)."""
+    def __init__(self, state_dir=None, profile=None, save_dir=None,
+                 rom=None, lib=None):
+        """Boot a calculator.  The state (RAM + CPU) comes from one of:
+          * the embedded blank GX image (default -- a pristine, independent
+            calc),
+          * `profile`: a directory's `hp48`+`ram` files (the ROM still comes
+            from find_rom()), or
+          * `state_dir`: a full saved-state directory loaded via the bundled
+            stdio provider (rom/hp48/ram/port*; used by make_blank_state).
+        If `save_dir` is set, save() persists `hp48`+`ram` back there; the
+        caller decides when (e.g. on clean exit).  Nothing is saved otherwise."""
         self.emu = Hp48(lib)
         if not self.emu._have_stack:
             raise RuntimeError("libcalc48 built without HP48_WITH_STACK_IO")
+        self.save_dir = os.path.expanduser(save_dir) if save_dir else None
         if state_dir is not None:
             if self.emu.load_state(os.path.expanduser(state_dir)) != 0:
                 raise RuntimeError("could not load state from %s" % state_dir)
@@ -168,21 +186,32 @@ class Rpl:
             rom_path = rom or find_rom()
             if not rom_path:
                 raise RomNotFoundError()
-            try:
-                import _blank_state
-            except ImportError:
-                raise RuntimeError(
-                    "no embedded blank image; generate it with "
-                    "tools/make_blank_state.py")
+            if profile is not None:
+                pdir = os.path.expanduser(profile)
+                hp48 = open(os.path.join(pdir, "hp48"), "rb").read()
+                ram = open(os.path.join(pdir, "ram"), "rb").read()
+            else:
+                try:
+                    import _blank_state
+                except ImportError:
+                    raise RuntimeError(
+                        "no embedded blank image; generate it with "
+                        "tools/make_blank_state.py")
+                hp48 = gzip.decompress(base64.b64decode(_blank_state.HP48_GZ_B64))
+                ram = gzip.decompress(base64.b64decode(_blank_state.RAM_GZ_B64))
             self._load_blobs({
-                "rom":  open(rom_path, "rb").read(),
-                "hp48": gzip.decompress(base64.b64decode(_blank_state.HP48_GZ_B64)),
-                "ram":  gzip.decompress(base64.b64decode(_blank_state.RAM_GZ_B64)),
-            })
+                "rom": open(rom_path, "rb").read(), "hp48": hp48, "ram": ram})
         self.emu.start()
         self.emu.display_init()
         self._settle(20)
         self.clear()                       # start from an empty stack
+
+    def save(self):
+        """Persist the current state (hp48 + ram) to save_dir.  Returns 0 on
+        success, <0 on error; raises if no save_dir was configured."""
+        if not self.save_dir:
+            raise RuntimeError("save() called but no save_dir configured")
+        return self.emu.save_state(self.save_dir)
 
     def _load_blobs(self, blobs):
         """Install an in-memory hp48_io_t that serves `blobs` (name -> bytes)
@@ -469,17 +498,63 @@ def _filter(rpl):
     return 0
 
 
+def _profile_has_state(d):
+    d = os.path.expanduser(d)
+    return (os.path.isfile(os.path.join(d, "hp48"))
+            and os.path.isfile(os.path.join(d, "ram")))
+
+
 def main(argv):
+    ap = argparse.ArgumentParser(
+        description="Command-line HP 48 RPL calculator (libcalc48).")
+    ap.add_argument("-s", "--state", metavar="DIR",
+                    help="load the calculator state (hp48 + ram) from DIR "
+                         "instead of the embedded blank image; read-only "
+                         "unless --save is given")
+    ap.add_argument("-w", "--save", action="store_true",
+                    help="on clean exit, write the state back to the --state "
+                         "DIR (requires --state); use it to build up a profile")
+    args = ap.parse_args(argv[1:])
+
+    if args.save and not args.state:
+        ap.error("--save requires --state")
+
+    profile = save_dir = None
+    if args.state:
+        if _profile_has_state(args.state):
+            profile = args.state           # load the existing profile
+        elif not args.save:
+            ap.error("no hp48/ram in %s (use --save to create a profile there)"
+                     % args.state)
+        # else: bootstrap a new profile from the embedded blank, save on exit
+        if args.save:
+            save_dir = args.state
+
     try:
-        engine = Rpl()
+        engine = Rpl(profile=profile, save_dir=save_dir)
     except RomNotFoundError as e:
         print(e.message, file=sys.stderr)
         return 2
+    except (OSError, RuntimeError) as e:
+        print("calc48: %s" % e, file=sys.stderr)
+        return 2
+
     with engine as rpl:
         if sys.stdin.isatty():             # a terminal -> interactive REPL
             _repl(rpl)
-            return 0
-        return _filter(rpl)                # piped/redirected input -> filter
+            rc = 0
+        else:                              # piped/redirected input -> filter
+            rc = _filter(rpl)
+        # Persist only on a clean run, so an aborted filter can't corrupt the
+        # profile.
+        if save_dir and rc == 0:
+            if rpl.save() != 0:
+                print("calc48: failed to save state to %s" % save_dir,
+                      file=sys.stderr)
+                rc = 1
+            else:
+                print("calc48: saved state to %s" % save_dir, file=sys.stderr)
+        return rc
 
 
 if __name__ == "__main__":
