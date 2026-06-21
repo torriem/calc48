@@ -15,7 +15,7 @@ endif()
 
 # Collect all build artifacts in the build root, so the executable and the
 # shared library are simply build/x48 and build/libcalc48.so regardless of which
-# subproject produced them (keeps examples/hp48.py and ./build/x48 working).
+# subproject produced them (keeps libcalc48/hp48.py and ./build/x48 working).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

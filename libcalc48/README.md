@@ -108,8 +108,22 @@ int main(void) {
 
 Link: `cc myapp.c libcalc48.a` (add `-I libcalc48/include`).
 
-A complete `ctypes` binding is in `../examples/hp48.py`; a minimal headless
-embedding check is `../examples/ffi_smoke.c`.
+## Python binding
+
+`hp48.py` (in this directory) is a dependency-free `ctypes` binding: an `Hp48`
+class wrapping `libcalc48.so` (create/load/run_slice/press_key/get_lcd/the stack
+API, plus a braille/ASCII LCD renderer). It locates the shared library via
+`$HP48_LIB` or `../build/libcalc48.so`. Import it with that directory on the
+path:
+
+```python
+import sys; sys.path.insert(0, "libcalc48")
+from hp48 import Hp48
+emu = Hp48(); emu.init_from_rom("rom"); emu.start(); emu.display_init()
+emu.run_slice(20000); print(emu.lcd_braille())
+```
+
+Run `python3 libcalc48/hp48.py [STATE_DIR]` directly for a small self-test.
 
 ## API reference
 
@@ -246,81 +260,11 @@ supported (chosen at runtime); HP49 is not. See `../docs/stack_io_plan.md`.
 
 GPL v2 or later (inherited from x48). See the headers in each source file.
 
-## Command-line calculator (`examples/calc48.py`)
-
-A small RPL calculator built on the library — handy for trying things out and as
-a worked example of driving libcalc48 from Python. It needs the HP 48 ROM (it is
-*not* bundled — see below) and the embedded blank state (built once with
-`tools/make_blank_state.py`).
-
-**Input modes** (auto-selected; piped stdin always wins):
-
-| invocation | behavior |
-|---|---|
-| `echo "2 3 + 4 *" \| calc48` | piped stdin is the program; prints the stack (`1: 20`) |
-| `echo "+" \| calc48 3 4` | piped stdin + args: args are pushed first (→ `1: 7`) |
-| `calc48 script.rpl` | terminal + file arg: run the file, print the stack |
-| `calc48 script.rpl 3 4` | file arg + extra args pushed onto the stack first |
-| `calc48 < script.rpl` | run a file non-interactively (redirect = filter mode) |
-| `calc48` | terminal, no file: interactive REPL (`.help` for commands) |
-
-A file/stdin run aborts on the first error (message on stderr, non-zero exit).
-
-**Options:**
-
-| option | meaning |
-|---|---|
-| `-r, --rom FILE` | ROM path; overrides `$HP48_ROM` and the default `<config_dir>/hp48/rom` |
-| `-s, --state DIR` | load the state (`hp48`+`ram`) from a profile dir instead of the blank image; read-only by default |
-| `-w, --save` | on a clean exit, write the state back to the `--state` dir (requires `--state`) — the way to build up a profile |
-
-The ROM is found via `--rom`, then `$HP48_ROM`, then `<config_dir>/hp48/rom`
-(`~/.config/hp48/rom` on Linux); if missing, calc48 prints where to download and
-place it. Without `--state` every run is a pristine, independent calculator and
-nothing is saved. `--state DIR` alone runs a profile read-only; `--state DIR
---save` loads it (or starts blank if the dir has no state yet) and persists on a
-clean exit — the save is skipped if a run aborts on an error.
-
-ASCII input conveniences are translated to HP 48 characters: digraphs `<<` `>>`
-`->` `<=` `>=` `!=` → `« » → ≤ ≥ ≠`, and backslash escapes like `\pi` `\GS`
-`\oo` (what `→STR` / ASCII transfer use). Binary integers and algebraics are
-displayed via the calc's own `→STR`, so they show in the live base and as infix.
-
-**REPL meta-commands.** In the interactive REPL, a line that starts with `.` is
-a calc48 command (not RPL); the stack persists between lines. An unknown `.`
-command prints the list instead of touching the stack.
-
-| command | action |
-|---|---|
-| `.stack` | show the whole stack |
-| `.clear` | empty the stack |
-| `.lcd [ascii]` | show the calculator screen as braille (or `ascii`) |
-| `.key KEY...` | tap key(s) by name or hex matrix code, then show the screen |
-| `.keys` | list the `.key` names (`.help keys` too) |
-| `.save [DIR]` | save state to `DIR`, else the `--state` dir |
-| `.help` | list the commands |
-| `.quit` | exit (bare `quit`/`exit` also work) |
-
-If the Python `readline` module is available, the REPL has line editing,
-persistent history (`<config_dir>/hp48/calc48_history`), and tab-completion of
-meta-commands and `.key` names.
-
-`.key` names follow `docs/keymap.md`: digits `0`–`9`, letters `a`–`z` (HP 48
-alpha layout — combine with `alpha` to type letters), and named keys/aliases
-(`enter`, `del`, `back`, `lshift`, `rshift`, `alpha`, `on`, arrows
-`up`/`down`/`left`/`right`, `+ - * /`, `sto`, `eval`, `sin`/`cos`/`tan`, …); an
-unknown token falls back to a hex code. E.g. `.key 1 2 enter` (→ `12`),
-`.key rshift sin` (ASIN). `.save` works whenever `--state` was given (with or
-without `--save`), and `.save DIR` snapshots to any directory.
-
 ## See also
 
-- `../examples/hp48.py` — full Python `ctypes` binding (display + stack).
-- `../examples/rpl_eval.py` — use the emulator as a User RPL scripting engine
-  (feed source text, get Python values back) + a REPL.  `calc48.py` (above) is
-  the command-line front end built on the same `Rpl` class.
-- `../examples/ffi_smoke.c` — minimal headless embedding (links only libcalc48).
-- `../docs/keymap.md` — key-matrix codes and PC-keyboard mapping.
-- `../docs/stack_io_plan.md` — RPL stack read/write design and internals.
+- `hp48.py` — the Python `ctypes` binding shipped with the library (above).
 - `include/hp48_ui.h`, `hp48_io.h`, `hp48_serial.h`, `hp48_rpl.h` — the callback
   and feature interfaces, each documented inline.
+- `../docs/keymap.md` — key-matrix codes and PC-keyboard mapping.
+- `../docs/stack_io_plan.md` — RPL stack read/write design and internals.
+- `../README.md` — project overview, the `calc48` CLI, and the examples.

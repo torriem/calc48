@@ -9,20 +9,20 @@ file to run.
 
   * Piped/redirected stdin: each line of stdin is evaluated, the resulting stack
     is printed, and all positional args are pushed first.
-        echo "2 3 + 4 *" | python3 examples/calc48.py        # -> 1: 20
-        echo "+" | python3 examples/calc48.py 3 4            # 3,4 then stdin -> 7
-        python3 examples/calc48.py < script.rpl              # run a file: redirect
+        echo "2 3 + 4 *" | python3 calc48/calc48.py        # -> 1: 20
+        echo "+" | python3 calc48/calc48.py 3 4            # 3,4 then stdin -> 7
+        python3 calc48/calc48.py < script.rpl              # run a file: redirect
   * Terminal + a file argument: run RPL from that file (one statement per line),
     printing the resulting stack; further args are pushed onto the stack first.
-        python3 examples/calc48.py script.rpl
-        python3 examples/calc48.py script.rpl 3 4        # stack 3,4 then run it
+        python3 calc48/calc48.py script.rpl
+        python3 calc48/calc48.py script.rpl 3 4        # stack 3,4 then run it
   * Terminal, no file argument: an interactive REPL with a "calc48>" prompt and
     (if the readline module is available) line editing, history, and tab
     completion.  Lines are RPL; a line starting with '.' is a meta-command --
     `.help`, `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...`
     (tap keys by name or matrix code), `.keys` (list key names), `.save [DIR]`,
     `.quit`.
-        python3 examples/calc48.py
+        python3 calc48/calc48.py
 
 The first error aborts file/stdin runs with a message on stderr and a non-zero
 exit code.
@@ -63,11 +63,14 @@ import os
 import sys
 from collections import namedtuple
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# The Python binding (hp48.py) and the generated blank-state module live with
+# the library; depend only on libcalc48, never on examples/.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "..", "libcalc48"))
 from hp48 import Hp48          # noqa: E402
 # _blank_state (the embedded blank GX RAM/CPU image) is imported lazily in
 # __init__ -- it is ROM-derived and generated locally by tools/make_blank_state.py
-# rather than committed, so rpl_eval must import cleanly without it.
+# rather than committed, so calc48 must import cleanly without it.
 
 ROM_URL = "https://www.hpcalc.org/details/4524"
 

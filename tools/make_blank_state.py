@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_blank_state.py -- (re)generate examples/_blank_state.py for rpl_eval.
+make_blank_state.py -- (re)generate libcalc48/_blank_state.py for rpl_eval.
 
 rpl_eval boots a pristine calculator from a ROM (supplied by the user) plus an
 *embedded* blank RAM/CPU image, because a cold boot from zeroed RAM doesn't reach
@@ -10,7 +10,7 @@ ROM differs from the one it was built with, regenerate it here.
 It takes a *seed* saved-state directory (a working calculator of the same ROM
 revision), clears the stack and purges all HOME variables to make it blank, then
 writes the `hp48` (CPU/peripheral state) and `ram` blobs -- gzip+base64 -- into
-examples/_blank_state.py.  The ROM itself is never written (it's the user's).
+libcalc48/_blank_state.py.  The ROM itself is never written (it's the user's).
 
 Usage:
     HP48_LIB=build/libcalc48.so python3 tools/make_blank_state.py [SEED_STATE_DIR]
@@ -28,7 +28,9 @@ import textwrap
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXAMPLES = os.path.join(HERE, "..", "examples")
-OUT = os.path.join(EXAMPLES, "_blank_state.py")
+# The blank-state module lives with the library (next to hp48.py), where calc48
+# and rpl_eval both import it from.
+OUT = os.path.join(HERE, "..", "libcalc48", "_blank_state.py")
 
 
 def _load_rpl():

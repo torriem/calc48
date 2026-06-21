@@ -52,7 +52,7 @@ CODE_LO, CODE_HI = 0x20, 0x100        # printable + extended HP charset
 
 def _load_hp48():
     here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "..", "examples", "hp48.py")
+    path = os.path.join(here, "..", "libcalc48", "hp48.py")
     spec = importlib.util.spec_from_file_location("hp48mod", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
