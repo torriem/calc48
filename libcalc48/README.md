@@ -296,9 +296,14 @@ command prints the list instead of touching the stack.
 | `.clear` | empty the stack |
 | `.lcd [ascii]` | show the calculator screen as braille (or `ascii`) |
 | `.key KEY...` | tap key(s) by name or hex matrix code, then show the screen |
+| `.keys` | list the `.key` names (`.help keys` too) |
 | `.save [DIR]` | save state to `DIR`, else the `--state` dir |
 | `.help` | list the commands |
 | `.quit` | exit (bare `quit`/`exit` also work) |
+
+If the Python `readline` module is available, the REPL has line editing,
+persistent history (`<config_dir>/hp48/calc48_history`), and tab-completion of
+meta-commands and `.key` names.
 
 `.key` names follow `docs/keymap.md`: digits `0`–`9`, letters `a`–`z` (HP 48
 alpha layout — combine with `alpha` to type letters), and named keys/aliases

@@ -16,10 +16,12 @@ file to run.
     printing the resulting stack; further args are pushed onto the stack first.
         python3 examples/calc48.py script.rpl
         python3 examples/calc48.py script.rpl 3 4        # stack 3,4 then run it
-  * Terminal, no file argument: an interactive REPL with a "calc48>" prompt.
-    Lines are RPL; a line starting with '.' is a meta-command -- `.help`,
-    `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...` (tap
-    keys by name or matrix code), `.save [DIR]`, `.quit`.
+  * Terminal, no file argument: an interactive REPL with a "calc48>" prompt and
+    (if the readline module is available) line editing, history, and tab
+    completion.  Lines are RPL; a line starting with '.' is a meta-command --
+    `.help`, `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...`
+    (tap keys by name or matrix code), `.keys` (list key names), `.save [DIR]`,
+    `.quit`.
         python3 examples/calc48.py
 
 The first error aborts file/stdin runs with a message on stderr and a non-zero
@@ -514,16 +516,30 @@ class Rpl:
         self.close()
 
 
+_META_CMDS = ["stack", "clear", "lcd", "key", "keys", "save", "help", "quit"]
+
 _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .stack        show the whole stack
   .clear        empty the stack
   .lcd [ascii]  show the calculator screen as braille (or ascii)
-  .key KEY...   tap key(s) by name (a-z, 0-9, enter, del, back, lshift,
-                rshift, alpha, on, +, -, *, /, ...) or hex code, then show
-                the screen   (e.g. .key 1 2 enter ; see docs/keymap.md)
+  .key KEY...   tap key(s) by name or hex code, then show the screen
+                (e.g. .key 1 2 enter); '.keys' lists the names
+  .keys         list the .key names
   .save [DIR]   save state to DIR, else the --state dir
-  .help         this list
+  .help [keys]  this list (or the key names)
   .quit         exit  (bare 'quit'/'exit' also work)"""
+
+_KEYS_HELP = """.key names (case-insensitive; see docs/keymap.md):
+  digits   0-9
+  letters  a-z   (HP 48 alpha layout; prefix with 'alpha' to type a letter)
+  editing  enter  del/delete  back/bs/bksp  alpha  on
+  shifts   lshift/shl  rshift/shr
+  arrows   up  down  left  right
+  math     +/plus  -/minus  */mul  //div  neg/chs  eex  ^/pow  sqrt  inv
+           sin  cos  tan
+  menus    mth  prg  cst  var  nxt/next  sto  eval
+  misc     space/spc  ./dot  '/tick
+  ...or any hex matrix code (0x optional), e.g. .key 8000 (ON) 44 (ENTER)."""
 
 
 def _meta(rpl, cmd):
@@ -536,7 +552,10 @@ def _meta(rpl, cmd):
     if name in ("quit", "exit", "q"):
         return True
     if name in ("help", "h", "?", ""):
-        print(_META_HELP)
+        print(_KEYS_HELP if args and args[0].lower() in ("key", "keys")
+              else _META_HELP)
+    elif name == "keys":
+        print(_KEYS_HELP)
     elif name == "stack":
         rpl.show(limit=None)
     elif name == "clear":
@@ -577,7 +596,50 @@ def _meta(rpl, cmd):
     return False
 
 
+def _init_readline():
+    """Best-effort line editing for the REPL: arrow-key editing, persistent
+    history, and tab-completion of meta-commands and key names.  A no-op if the
+    readline module isn't available (e.g. plain Windows Python)."""
+    try:
+        import readline
+    except ImportError:
+        return
+    import atexit
+    histfile = os.path.join(config_dir(), "calc48_history")
+    try:
+        readline.read_history_file(histfile)
+    except OSError:
+        pass
+    readline.set_history_length(1000)
+
+    def _save():
+        try:
+            os.makedirs(config_dir(), exist_ok=True)
+            readline.write_history_file(histfile)
+        except OSError:
+            pass
+    atexit.register(_save)
+
+    def _complete(text, state):
+        s = readline.get_line_buffer().lstrip()
+        if not s.startswith("."):          # only complete meta-commands
+            return None
+        parts = s.split()
+        if len(parts) <= 1 and not s.endswith(" "):
+            cands = ["." + c for c in _META_CMDS if ("." + c).startswith(text)]
+        elif parts[0] == ".key":
+            cands = sorted(n for n in KEY_NAMES if n.startswith(text.lower()))
+        else:
+            cands = []
+        return cands[state] if state < len(cands) else None
+
+    readline.set_completer_delims(" \t\n")
+    readline.set_completer(_complete)
+    readline.parse_and_bind("tab: complete")
+
+
 def _repl(rpl):
+    _init_readline()
     print("calc48 -- User RPL.  '.help' for commands.")
     rpl.show()
     while True:
