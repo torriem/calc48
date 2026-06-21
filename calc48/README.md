@@ -58,9 +58,15 @@ string literals):
 - **ASCII digraphs:** `<<` `>>` `->` `<=` `>=` `!=` → `«` `»` `→` `≤` `≥` `≠`.
 - **HP 48 backslash escapes** (what `→STR` / ASCII transfer use): `\pi`→π,
   `\GS`→Σ, `\Gd`→δ, `\oo`→∞, … — e.g. `2 \pi * ->NUM`.
+- **Typed Unicode glyphs** — you can also just type/paste the real characters
+  (`π`, `√`, `Σ`, `→`, `≤`, «», …) and they're mapped to the HP 48 character,
+  including inside `"..."` strings. (stdin/files are read as UTF-8.)
 
 Binary integers and algebraics are displayed via the calculator's own `→STR`, so
-they show in the live base (BIN/OCT/DEC/HEX) and as infix.
+they show in the live base (BIN/OCT/DEC/HEX) and as infix. Conversely, when the
+stack is printed (all modes), HP 48 special characters in strings/algebraics/
+programs are shown as their Unicode glyphs (π, Σ, √, «», …) rather than the
+`\pi`-style spellings. `.chars` lists the spellings and their glyphs.
 
 ## REPL meta-commands
 
@@ -75,6 +81,7 @@ than touching the stack.
 | `.lcd [ascii]` | show the calculator screen as braille (or `ascii`) |
 | `.key KEY...` | tap key(s) by name or hex matrix code, then show the screen |
 | `.keys` | list the `.key` names (`.help keys` too) |
+| `.chars` | list the ASCII spellings for HP 48 special characters (e.g. `\v/`=√, `\pi`=π) |
 | `.save [DIR]` | save state to `DIR`, else the `--state` dir |
 | `.help` | list the commands |
 | `.quit` | exit (bare `quit`/`exit` also work) |

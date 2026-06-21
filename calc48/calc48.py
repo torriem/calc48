@@ -20,8 +20,8 @@ file to run.
     (if the readline module is available) line editing, history, and tab
     completion.  Lines are RPL; a line starting with '.' is a meta-command --
     `.help`, `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...`
-    (tap keys by name or matrix code), `.keys` (list key names), `.save [DIR]`,
-    `.quit`.
+    (tap keys by name or matrix code), `.keys` (list key names), `.chars` (list
+    special-character spellings), `.save [DIR]`, `.quit`.
         python3 calc48/calc48.py
 
 The first error aborts file/stdin runs with a message on stderr and a non-zero
@@ -179,6 +179,49 @@ def _parse_key(tok):
     if t in KEY_NAMES:
         return KEY_NAMES[t]
     return int(t[2:] if t.startswith("0x") else t, 16)
+
+
+# HP 48 code -> Unicode glyph, for the special block 0x80-0x9f (the rest of the
+# high range follows Latin-1, so chr(code) is the glyph there).  Used by the
+# `.chars` listing.
+_HP_GLYPH = {
+    0x80: "∠", 0x81: "x̄", 0x82: "∇", 0x83: "√",
+    0x84: "∫", 0x85: "Σ", 0x87: "π", 0x88: "∂",
+    0x89: "≤", 0x8a: "≥", 0x8b: "≠", 0x8c: "α",
+    0x8d: "→", 0x8e: "←", 0x91: "γ", 0x92: "δ",
+    0x93: "ε", 0x94: "η", 0x95: "θ", 0x96: "λ",
+    0x97: "ρ", 0x98: "σ", 0x99: "τ", 0x9a: "ω",
+    0x9b: "Δ", 0x9c: "Π", 0x9d: "Ω", 0x9f: "∞",
+}
+
+
+def _hp_glyph(code):
+    return _HP_GLYPH.get(code) or bytes([code & 0xff]).decode("latin-1", "replace")
+
+
+# Inverse of _HP_GLYPH: a typed Unicode glyph -> the HP 48 byte (as a Latin-1
+# char, which push_string encodes directly).  Only the 0x80-0x9f block needs
+# this; HP chars >= 0xa0 are Latin-1, so a typed « / µ / × already encodes as-is.
+_GLYPH_TO_HP = {glyph: chr(code) for code, glyph in _HP_GLYPH.items()}
+
+
+_ESCAPE_GLYPHS = None
+
+
+def _to_unicode(text):
+    """Replace HP 48 backslash escapes (\\pi, \\GS, \\<<, ...) in decoded display
+    text with their Unicode glyphs, so the printed stack reads naturally
+    (strings, algebraics, programs).  Longest spelling first so \\<< wins over
+    \\<."""
+    global _ESCAPE_GLYPHS
+    if _ESCAPE_GLYPHS is None:
+        _ESCAPE_GLYPHS = sorted(
+            ((spel, _hp_glyph(code)) for spel, code in Rpl.NAMED.items()),
+            key=lambda sg: len(sg[0]), reverse=True)
+    for spel, glyph in _ESCAPE_GLYPHS:
+        if spel in text:
+            text = text.replace(spel, glyph)
+    return text
 
 
 class RplError(Exception):
@@ -386,10 +429,15 @@ class Rpl:
         return bytes(out)
 
     def _translate(self, src):
-        """Replace ASCII digraphs (<<, >>, ->, ...) and HP 48 backslash escapes
-        (\\pi, \\GS, \\oo, ...) with the HP 48 single characters, leaving the
-        contents of "..." string literals untouched.  Longest match wins, so
-        >> vs >=, and \\<< vs \\<, don't collide."""
+        """Map input spellings to HP 48 characters.  First, typed Unicode glyphs
+        (π, √, Σ, →, ≤, ...) are converted everywhere -- including inside "..."
+        strings, since a typed glyph *is* that character.  Then ASCII digraphs
+        (<<, >>, ->, ...) and backslash escapes (\\pi, \\GS, ...) are converted
+        outside string literals only (so literal '->' in a string is kept).
+        Longest match wins, so >> vs >=, and \\<< vs \\<, don't collide."""
+        for glyph in sorted(_GLYPH_TO_HP, key=len, reverse=True):
+            if glyph in src:
+                src = src.replace(glyph, _GLYPH_TO_HP[glyph])
         subs = dict(self.DIGRAPHS)
         subs.update(self.NAMED)
         keys = sorted(subs, key=len, reverse=True)
@@ -482,18 +530,19 @@ class Rpl:
         return [self._decode(lvl) for lvl in range(1, d + 1)]
 
     def _level_text(self, level):
-        """The calculator's representation of a level (string quoted, « », ...).
-        Binary integers and algebraics go through →STR so they show in the live
-        base / as infix, matching the real calc."""
+        """The calculator's representation of a level for printing.  Binary
+        integers and algebraics go through →STR (live base / infix); HP 48
+        special characters (strings, algebraics, programs) are shown as their
+        Unicode glyphs rather than the \\pi-style ASCII spellings."""
         prolog = self.emu._lib.hp48_object_prolog(
             self.emu._lib.hp48_stack_addr(level))
         if prolog in (DOHSTR, DOSYMB):
             s = self._calc_str(level)
             if s is not None:
-                return s
+                return _to_unicode(s)
         t = self._describe(level)
         t = t.split("] ", 1)[1] if "] " in t else t
-        return t.replace("\\<<", "«").replace("\\>>", "»").replace("\\->", "→")
+        return _to_unicode(t)
 
     def show(self, limit=8):
         """Print the stack like a calculator: top `limit` levels, level 1 at the
@@ -519,7 +568,8 @@ class Rpl:
         self.close()
 
 
-_META_CMDS = ["stack", "clear", "lcd", "key", "keys", "save", "help", "quit"]
+_META_CMDS = ["stack", "clear", "lcd", "key", "keys", "chars", "save",
+              "help", "quit"]
 
 _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .stack        show the whole stack
@@ -528,9 +578,24 @@ _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .key KEY...   tap key(s) by name or hex code, then show the screen
                 (e.g. .key 1 2 enter); '.keys' lists the names
   .keys         list the .key names
+  .chars        list the ASCII spellings for HP 48 special characters
   .save [DIR]   save state to DIR, else the --state dir
   .help [keys]  this list (or the key names)
   .quit         exit  (bare 'quit'/'exit' also work)"""
+
+
+def _print_chars(rpl):
+    """List the input spellings for HP 48 special characters and the glyph each
+    produces (the translation applies outside "..." string literals)."""
+    print("ASCII spellings for HP 48 special characters:")
+    print("  digraphs:  " + "   ".join(
+        "%s=%s" % (k, _hp_glyph(rpl.DIGRAPHS[k]))
+        for k in ("<<", ">>", "->", "<=", ">=", "!=")))
+    print("  backslash escapes:")
+    entries = ["%s=%s" % (s, _hp_glyph(c))
+               for s, c in sorted(rpl.NAMED.items(), key=lambda kv: kv[1])]
+    for i in range(0, len(entries), 6):
+        print("    " + "".join("%-10s" % e for e in entries[i:i + 6]))
 
 _KEYS_HELP = """.key names (case-insensitive; see docs/keymap.md):
   digits   0-9
@@ -555,10 +620,16 @@ def _meta(rpl, cmd):
     if name in ("quit", "exit", "q"):
         return True
     if name in ("help", "h", "?", ""):
-        print(_KEYS_HELP if args and args[0].lower() in ("key", "keys")
-              else _META_HELP)
+        if args and args[0].lower() in ("key", "keys"):
+            print(_KEYS_HELP)
+        elif args and args[0].lower() in ("char", "chars"):
+            _print_chars(rpl)
+        else:
+            print(_META_HELP)
     elif name == "keys":
         print(_KEYS_HELP)
+    elif name in ("chars", "char"):
+        _print_chars(rpl)
     elif name == "stack":
         rpl.show(limit=None)
     elif name == "clear":
@@ -700,6 +771,15 @@ def _profile_has_state(d):
 
 
 def main(argv):
+    # Input may contain Unicode glyphs (π, √, ...) and output emits Unicode
+    # (glyphs, braille); force UTF-8 on both so it works even when piped under a
+    # non-UTF-8 locale (Python >= 3.7).
+    for _stream in (sys.stdin, sys.stdout):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser(
         description="Command-line HP 48 RPL calculator (libcalc48).")
     ap.add_argument("-s", "--state", metavar="DIR",
@@ -762,7 +842,7 @@ def main(argv):
             rc = _eval_args(rpl, args.rpl)
             if rc == 0 and args.file is not None:
                 try:
-                    fp = open(args.file)
+                    fp = open(args.file, encoding="utf-8")
                 except OSError as e:
                     print("calc48: %s" % e, file=sys.stderr)
                     rc = 2
