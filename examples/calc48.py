@@ -12,9 +12,10 @@ Two modes, chosen automatically:
     (commands: stack, clear, quit).
         python3 examples/calc48.py
 
-It needs the HP 48 ROM -- found via $HP48_ROM, else <config_dir>/hp48/rom -- and
-the embedded blank state (build it once with tools/make_blank_state.py).  If the
-ROM is missing it prints where to download and place it.
+It needs the HP 48 ROM -- from --rom FILE, else $HP48_ROM, else
+<config_dir>/hp48/rom -- and the embedded blank state (build it once with
+tools/make_blank_state.py).  If the ROM is missing it prints where to download
+and place it.
 
 By default every run is a pristine, independent calculator and nothing is saved.
 To work in a persistent *profile* (its own hp48 + ram, separate from the ROM):
@@ -514,6 +515,9 @@ def main(argv):
     ap.add_argument("-w", "--save", action="store_true",
                     help="on clean exit, write the state back to the --state "
                          "DIR (requires --state); use it to build up a profile")
+    ap.add_argument("-r", "--rom", metavar="FILE",
+                    help="path to the HP 48 ROM (overrides $HP48_ROM and the "
+                         "default <config_dir>/hp48/rom)")
     args = ap.parse_args(argv[1:])
 
     if args.save and not args.state:
@@ -530,8 +534,13 @@ def main(argv):
         if args.save:
             save_dir = args.state
 
+    rom = os.path.expanduser(args.rom) if args.rom else None
+    if rom and not os.path.isfile(rom):
+        print("calc48: ROM not found: %s" % rom, file=sys.stderr)
+        return 2
+
     try:
-        engine = Rpl(profile=profile, save_dir=save_dir)
+        engine = Rpl(profile=profile, save_dir=save_dir, rom=rom)
     except RomNotFoundError as e:
         print(e.message, file=sys.stderr)
         return 2
