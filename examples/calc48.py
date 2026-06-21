@@ -2,15 +2,26 @@
 r"""
 calc48.py -- a command-line HP 48 RPL calculator (built on libcalc48).
 
-Two modes, chosen automatically:
-  * Piped/redirected input: each line of stdin is evaluated, then the resulting
-    stack is printed.  The first error aborts with a message on stderr and a
-    non-zero exit code.
+Input modes, chosen automatically.  Piped/redirected stdin always wins: if it
+is present, stdin is the program and every positional argument is RPL placed on
+the stack.  Otherwise (stdin is a terminal) the first argument, if any, is a
+file to run.
+
+  * Piped/redirected stdin: each line of stdin is evaluated, the resulting stack
+    is printed, and all positional args are pushed first.
         echo "2 3 + 4 *" | python3 examples/calc48.py        # -> 1: 20
-        python3 examples/calc48.py < script.rpl
-  * A terminal (no piped input): an interactive REPL with a "calc48>" prompt
+        echo "+" | python3 examples/calc48.py 3 4            # 3,4 then stdin -> 7
+        python3 examples/calc48.py < script.rpl              # run a file: redirect
+  * Terminal + a file argument: run RPL from that file (one statement per line),
+    printing the resulting stack; further args are pushed onto the stack first.
+        python3 examples/calc48.py script.rpl
+        python3 examples/calc48.py script.rpl 3 4        # stack 3,4 then run it
+  * Terminal, no file argument: an interactive REPL with a "calc48>" prompt
     (commands: stack, clear, quit).
         python3 examples/calc48.py
+
+The first error aborts file/stdin runs with a message on stderr and a non-zero
+exit code.
 
 It needs the HP 48 ROM -- from --rom FILE, else $HP48_ROM, else
 <config_dir>/hp48/rom -- and the embedded blank state (build it once with
@@ -484,18 +495,31 @@ def _repl(rpl):
         rpl.show()                         # show the resulting stack
 
 
-def _filter(rpl):
-    """Evaluate each line of stdin; print the resulting stack at EOF.  On the
+def _run_stream(rpl, stream, label="line"):
+    """Evaluate each line of `stream`; print the resulting stack at EOF.  On the
     first error, report it to stderr and bail out with a non-zero exit code."""
-    for lineno, raw in enumerate(sys.stdin, 1):
+    for lineno, raw in enumerate(stream, 1):
         line = raw.strip()
         if not line:
             continue
         res = rpl.eval(line)
         if res.error:
-            print("calc48: line %d: %s" % (lineno, res.error), file=sys.stderr)
+            print("calc48: %s %d: %s" % (label, lineno, res.error),
+                  file=sys.stderr)
             return 1
     rpl.show(limit=None)
+    return 0
+
+
+def _eval_args(rpl, items):
+    """Evaluate command-line RPL args, in order, onto the stack (no output).
+    Returns 0, or 1 (with a stderr message) on the first error."""
+    for i, src in enumerate(items, 1):
+        res = rpl.eval(src)
+        if res.error:
+            print("calc48: arg %d (%r): %s" % (i, src, res.error),
+                  file=sys.stderr)
+            return 1
     return 0
 
 
@@ -518,6 +542,13 @@ def main(argv):
     ap.add_argument("-r", "--rom", metavar="FILE",
                     help="path to the HP 48 ROM (overrides $HP48_ROM and the "
                          "default <config_dir>/hp48/rom)")
+    ap.add_argument("file", nargs="?",
+                    help="with no piped stdin, run RPL from this file (one "
+                         "statement per line); with piped stdin it is instead "
+                         "RPL placed on the stack (stdin is the program)")
+    ap.add_argument("rpl", nargs="*",
+                    help="RPL evaluated onto the stack before the file/stdin "
+                         "runs (use `--` before args that start with '-')")
     args = ap.parse_args(argv[1:])
 
     if args.save and not args.state:
@@ -549,12 +580,29 @@ def main(argv):
         return 2
 
     with engine as rpl:
-        if sys.stdin.isatty():             # a terminal -> interactive REPL
-            _repl(rpl)
-            rc = 0
-        else:                              # piped/redirected input -> filter
-            rc = _filter(rpl)
-        # Persist only on a clean run, so an aborted filter can't corrupt the
+        if not sys.stdin.isatty():
+            # Piped/redirected input is the program: stdin is the filter, and
+            # ALL positional args are RPL placed on the stack first.
+            pre = ([args.file] if args.file is not None else []) + args.rpl
+            rc = _eval_args(rpl, pre)
+            if rc == 0:
+                rc = _run_stream(rpl, sys.stdin)
+        else:
+            # No piped input: the first arg (if any) is a file to run, with any
+            # further args placed on the stack first; otherwise a REPL.
+            rc = _eval_args(rpl, args.rpl)
+            if rc == 0 and args.file is not None:
+                try:
+                    fp = open(args.file)
+                except OSError as e:
+                    print("calc48: %s" % e, file=sys.stderr)
+                    rc = 2
+                else:
+                    with fp:
+                        rc = _run_stream(rpl, fp)
+            elif rc == 0:
+                _repl(rpl)
+        # Persist only on a clean run, so an aborted run can't corrupt the
         # profile.
         if save_dir and rc == 0:
             if rpl.save() != 0:
