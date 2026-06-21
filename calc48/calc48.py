@@ -232,6 +232,61 @@ def _unpack_nibbles(data):
     return nibs
 
 
+# Object sizing (mirror of obj_size() in libcalc48/src/rplstack.c), so .load can
+# trim the byte-padded file body to the object's exact nibble length before
+# pushing -- an over-long TEMPOB block corrupts the calculator's GC.
+_SZ_FIXED = {0x02911: 10, 0x02933: 21, 0x02955: 26, 0x02977: 37, 0x0299d: 47,
+             0x029bf: 7, 0x02baa: 15, 0x02e92: 11}      # SysBin..Char, AcPtr, ROMP
+_SZ_COMPOSITE = {0x02a74, 0x02ab8, 0x02ada, 0x02d9d}    # List, Symb, Unit, Prog
+_SZ_NAME = {0x02e48, 0x02e6d}                            # Global/Local Ident
+_SZ_LENPREFIX = {0x029e8, 0x02a0a, 0x02a2c, 0x02a4e, 0x02b1e, 0x02b40, 0x02b62,
+                 0x02b88, 0x02bcc, 0x02bee, 0x02c10, 0x02dcc}  # Array..Code
+_SZ_TAG, _SZ_RRP, _SZ_SEMI = 0x02afc, 0x02a96, 0x0312b
+
+
+def _nib_val(nibs, pos, n):
+    return sum(nibs[pos + i] << (4 * i) for i in range(n)) if pos + n <= len(nibs) else -1
+
+
+def _object_nibble_size(nibs, pos=0, depth=0):
+    """Total nibble length of the object at `pos`, or -1 if it can't be sized."""
+    if depth > 256 or pos + 5 > len(nibs):
+        return -1
+    pro = _nib_val(nibs, pos, 5)
+    if pro in _SZ_FIXED:
+        return _SZ_FIXED[pro]
+    if pro == _SZ_SEMI:
+        return 0
+    if pro in _SZ_COMPOSITE:
+        length, n = 0, 5
+        while True:
+            length += n
+            e = _object_nibble_size(nibs, pos + length, depth + 1)
+            if e < 0:
+                return -1
+            if e == 0:
+                break
+            n = e
+        return length + 5
+    if pro in _SZ_NAME:
+        return 7 + _nib_val(nibs, pos + 5, 2) * 2
+    if pro == _SZ_TAG:
+        n = 7 + _nib_val(nibs, pos + 5, 2) * 2
+        rest = _object_nibble_size(nibs, pos + n, depth + 1)
+        return -1 if rest < 0 else n + rest
+    if pro == _SZ_RRP:
+        n = _nib_val(nibs, pos + 8, 5)
+        if n == 0:
+            return 13
+        length = 8 + n
+        length += _nib_val(nibs, pos + length, 2) * 2 + 4
+        rest = _object_nibble_size(nibs, pos + length, depth + 1)
+        return -1 if rest < 0 else length + rest
+    if pro in _SZ_LENPREFIX:
+        return 5 + _nib_val(nibs, pos + 5, 5)
+    return 5
+
+
 _ESCAPE_GLYPHS = None
 
 
@@ -717,7 +772,11 @@ def _meta(rpl, cmd):
                 print("  %s" % e)
             else:
                 if data[:7] == b"HPHP48-":         # binary object transfer file
-                    ok = rpl.emu.push_object(_unpack_nibbles(data[8:]))
+                    nibs = _unpack_nibbles(data[8:])
+                    size = _object_nibble_size(nibs)
+                    if 5 <= size <= len(nibs):     # trim byte-padding to the
+                        nibs = nibs[:size]         # exact object (GC-safe)
+                    ok = rpl.emu.push_object(nibs)
                 else:                              # treat the file as a string
                     ok = rpl.emu.push_string(data)
                 if ok:
