@@ -85,6 +85,8 @@ than touching the stack.
 | `.store FILE` | write the level-1 object to `FILE` (HP binary object format) |
 | `.load FILE` | push an object from `FILE` (a non-HP48 file loads as a string) |
 | `.save [DIR]` | save the whole calculator state to `DIR`, else the `--state` dir |
+| `.reset` | reboot: reload the `--state` profile if it has saved state, else the blank image |
+| `.reset_all` | reboot from the embedded blank image, ignoring `--state` |
 | `.help` | list the commands |
 | `.quit` | exit (bare `quit`/`exit` also work) |
 

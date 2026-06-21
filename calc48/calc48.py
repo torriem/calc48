@@ -22,7 +22,8 @@ file to run.
     `.help`, `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...`
     (tap keys by name or matrix code), `.keys` (list key names), `.chars` (list
     special-character spellings), `.store FILE` / `.load FILE` (save/load a stack
-    object in HP binary format), `.save [DIR]`, `.quit`.
+    object in HP binary format), `.save [DIR]`, `.reset` / `.reset_all` (reboot),
+    `.quit`.
         python3 calc48/calc48.py
 
 The first error aborts file/stdin runs with a message on stderr and a non-zero
@@ -362,33 +363,63 @@ class Rpl:
         self.emu = Hp48(lib)
         if not self.emu._have_stack:
             raise RuntimeError("libcalc48 built without HP48_WITH_STACK_IO")
+        self._lib = self.emu._lib          # reuse the loaded library on reboot
         self.save_dir = os.path.expanduser(save_dir) if save_dir else None
+        self._rom_path = None              # set in the rom+blank/profile path
         if state_dir is not None:
             if self.emu.load_state(os.path.expanduser(state_dir)) != 0:
                 raise RuntimeError("could not load state from %s" % state_dir)
+            self._start()
         else:
-            rom_path = rom or find_rom()
-            if not rom_path:
+            self._rom_path = rom or find_rom()
+            if not self._rom_path:
                 raise RomNotFoundError()
-            if profile is not None:
-                pdir = os.path.expanduser(profile)
-                hp48 = open(os.path.join(pdir, "hp48"), "rb").read()
-                ram = open(os.path.join(pdir, "ram"), "rb").read()
-            else:
-                try:
-                    import _blank_state
-                except ImportError:
-                    raise RuntimeError(
-                        "no embedded blank image; generate it with "
-                        "tools/make_blank_state.py")
-                hp48 = gzip.decompress(base64.b64decode(_blank_state.HP48_GZ_B64))
-                ram = gzip.decompress(base64.b64decode(_blank_state.RAM_GZ_B64))
-            self._load_blobs({
-                "rom": open(rom_path, "rb").read(), "hp48": hp48, "ram": ram})
+            self._boot(profile)            # profile dir, or None for the blank
+
+    # -- boot / reset ------------------------------------------------------
+    def _boot(self, profile):
+        """Load rom + (the `profile` dir's hp48/ram, or the embedded blank
+        image) into the current emulator instance and start it."""
+        if profile is not None:
+            pdir = os.path.expanduser(profile)
+            hp48 = open(os.path.join(pdir, "hp48"), "rb").read()
+            ram = open(os.path.join(pdir, "ram"), "rb").read()
+        else:
+            try:
+                import _blank_state
+            except ImportError:
+                raise RuntimeError("no embedded blank image; generate it with "
+                                   "tools/make_blank_state.py")
+            hp48 = gzip.decompress(base64.b64decode(_blank_state.HP48_GZ_B64))
+            ram = gzip.decompress(base64.b64decode(_blank_state.RAM_GZ_B64))
+        self._load_blobs({
+            "rom": open(self._rom_path, "rb").read(), "hp48": hp48, "ram": ram})
+        self._start()
+
+    def _start(self):
         self.emu.start()
         self.emu.display_init()
         self._settle(20)
         self.clear()                       # start from an empty stack
+
+    def reset(self):
+        """Reboot from the --state profile if it holds a saved state, else from
+        the embedded blank image.  Returns the source dir, or None for blank."""
+        src = self.save_dir if (self.save_dir
+                                and _profile_has_state(self.save_dir)) else None
+        self._reboot(src)
+        return src
+
+    def reset_all(self):
+        """Reboot from the embedded blank image, ignoring --state."""
+        self._reboot(None)
+
+    def _reboot(self, profile):
+        if self._rom_path is None:
+            raise RuntimeError("reset is not available in this mode")
+        self.emu.destroy()                 # fresh instance for a clean restart
+        self.emu = Hp48(self._lib)
+        self._boot(profile)
 
     def save(self):
         """Persist the current state (hp48 + ram) to save_dir.  Returns 0 on
@@ -651,7 +682,7 @@ class Rpl:
 
 
 _META_CMDS = ["stack", "clear", "lcd", "key", "keys", "chars", "store", "load",
-              "save", "help", "quit"]
+              "save", "reset", "reset_all", "help", "quit"]
 
 _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .stack        show the whole stack
@@ -664,6 +695,8 @@ _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .store FILE   write the level-1 object to FILE (HP binary object format)
   .load FILE    push an object from FILE (a non-HP48 file loads as a string)
   .save [DIR]   save the whole calculator state to DIR, else the --state dir
+  .reset        reboot: reload the --state profile (if any), else the blank image
+  .reset_all    reboot from the embedded blank image, ignoring --state
   .help [keys]  this list (or the key names)
   .quit         exit  (bare 'quit'/'exit' also work)"""
 
@@ -792,6 +825,19 @@ def _meta(rpl, cmd):
             print("  saved state to %s" % target)
         else:
             print("  could not save state to %s" % target)
+    elif name in ("reset", "reset_all"):
+        try:
+            if name == "reset_all" or (args and args[0].lower() == "all"):
+                rpl.reset_all()
+                print("  reset to the blank image")
+            else:
+                src = rpl.reset()
+                print("  reset to %s" % src if src
+                      else "  reset to the blank image")
+        except (OSError, RuntimeError) as e:
+            print("  %s" % e)
+        else:
+            rpl.show()
     else:
         print("  unknown command '.%s' -- '.help' for the list" % name)
     return False
