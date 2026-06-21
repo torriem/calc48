@@ -21,7 +21,8 @@ file to run.
     completion.  Lines are RPL; a line starting with '.' is a meta-command --
     `.help`, `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...`
     (tap keys by name or matrix code), `.keys` (list key names), `.chars` (list
-    special-character spellings), `.save [DIR]`, `.quit`.
+    special-character spellings), `.store FILE` / `.load FILE` (save/load a stack
+    object in HP binary format), `.save [DIR]`, `.quit`.
         python3 calc48/calc48.py
 
 The first error aborts file/stdin runs with a message on stderr and a non-zero
@@ -203,6 +204,32 @@ def _hp_glyph(code):
 # char, which push_string encodes directly).  Only the 0x80-0x9f block needs
 # this; HP chars >= 0xa0 are Latin-1, so a typed « / µ / × already encodes as-is.
 _GLYPH_TO_HP = {glyph: chr(code) for code, glyph in _HP_GLYPH.items()}
+
+# HP 48 binary object transfer format: an 8-byte ASCII header then the object
+# nibbles packed two-per-byte (low nibble first).  Compatible with droid48,
+# x48, Emu48, Conn, and a real HP 48 (which ignore the revision letter on read;
+# 'R' is the G/GX family).  See droid48 binio.c.
+HP48_BIN_HEADER = b"HPHP48-R"
+
+
+def _pack_nibbles(nibs):
+    """nibbles (one per byte) -> bytes packed two-per-byte, low nibble first."""
+    out = bytearray((len(nibs) + 1) // 2)
+    for i, nib in enumerate(nibs):
+        if i & 1:
+            out[i >> 1] |= (nib & 0xf) << 4
+        else:
+            out[i >> 1] = nib & 0xf
+    return bytes(out)
+
+
+def _unpack_nibbles(data):
+    """bytes -> nibbles (one per byte), low nibble first."""
+    nibs = bytearray(2 * len(data))
+    for i, b in enumerate(data):
+        nibs[2 * i] = b & 0xf
+        nibs[2 * i + 1] = b >> 4
+    return nibs
 
 
 _ESCAPE_GLYPHS = None
@@ -568,8 +595,8 @@ class Rpl:
         self.close()
 
 
-_META_CMDS = ["stack", "clear", "lcd", "key", "keys", "chars", "save",
-              "help", "quit"]
+_META_CMDS = ["stack", "clear", "lcd", "key", "keys", "chars", "store", "load",
+              "save", "help", "quit"]
 
 _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .stack        show the whole stack
@@ -579,7 +606,9 @@ _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
                 (e.g. .key 1 2 enter); '.keys' lists the names
   .keys         list the .key names
   .chars        list the ASCII spellings for HP 48 special characters
-  .save [DIR]   save state to DIR, else the --state dir
+  .store FILE   write the level-1 object to FILE (HP binary object format)
+  .load FILE    push an object from FILE (a non-HP48 file loads as a string)
+  .save [DIR]   save the whole calculator state to DIR, else the --state dir
   .help [keys]  this list (or the key names)
   .quit         exit  (bare 'quit'/'exit' also work)"""
 
@@ -657,6 +686,45 @@ def _meta(rpl, cmd):
                     rpl._key(c)            # press + release (a tap)
                 rpl._settle(6)             # let the calc redraw
                 print(rpl.emu.lcd_braille())
+    elif name == "store":
+        if not args:
+            print("  usage: .store FILE   (write the level-1 object)")
+        elif rpl.depth() < 1:
+            print("  empty stack")
+        else:
+            nibs = rpl.emu.read_object(1)
+            if not nibs:
+                print("  could not read the level-1 object")
+            else:
+                path = os.path.expanduser(args[0])
+                try:
+                    with open(path, "wb") as f:
+                        f.write(HP48_BIN_HEADER)
+                        f.write(_pack_nibbles(nibs))
+                except OSError as e:
+                    print("  %s" % e)
+                else:
+                    print("  wrote %s (%d nibbles)" % (path, len(nibs)))
+    elif name == "load":
+        if not args:
+            print("  usage: .load FILE   (push an object, or the file as a string)")
+        else:
+            path = os.path.expanduser(args[0])
+            try:
+                with open(path, "rb") as f:
+                    data = f.read()
+            except OSError as e:
+                print("  %s" % e)
+            else:
+                if data[:7] == b"HPHP48-":         # binary object transfer file
+                    ok = rpl.emu.push_object(_unpack_nibbles(data[8:]))
+                else:                              # treat the file as a string
+                    ok = rpl.emu.push_string(data)
+                if ok:
+                    rpl.show()
+                else:
+                    print("  could not push the object (out of memory or "
+                          "malformed)")
     elif name == "save":
         target = os.path.expanduser(args[0]) if args else rpl.save_dir
         if not target:
@@ -703,6 +771,10 @@ def _init_readline():
             cands = ["." + c for c in _META_CMDS if ("." + c).startswith(text)]
         elif parts[0] == ".key":
             cands = sorted(n for n in KEY_NAMES if n.startswith(text.lower()))
+        elif parts[0] in (".store", ".load", ".save"):
+            import glob
+            cands = [p + ("/" if os.path.isdir(p) else "")
+                     for p in glob.glob(os.path.expanduser(text) + "*")]
         else:
             cands = []
         return cands[state] if state < len(cands) else None

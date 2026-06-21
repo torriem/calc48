@@ -82,13 +82,21 @@ than touching the stack.
 | `.key KEY...` | tap key(s) by name or hex matrix code, then show the screen |
 | `.keys` | list the `.key` names (`.help keys` too) |
 | `.chars` | list the ASCII spellings for HP 48 special characters (e.g. `\v/`=√, `\pi`=π) |
-| `.save [DIR]` | save state to `DIR`, else the `--state` dir |
+| `.store FILE` | write the level-1 object to `FILE` (HP binary object format) |
+| `.load FILE` | push an object from `FILE` (a non-HP48 file loads as a string) |
+| `.save [DIR]` | save the whole calculator state to `DIR`, else the `--state` dir |
 | `.help` | list the commands |
 | `.quit` | exit (bare `quit`/`exit` also work) |
 
+`.store`/`.load` use the HP 48 **binary object transfer format** (an `HPHP48-`
+header + the object's nibbles, two per byte) — the same format droid48, x48,
+Emu48, Conn, and a real HP 48 read and write, so objects move freely between
+them. (`.store` saves one stack object to a file; `.save` persists the whole
+calculator state to a directory — different things.)
+
 If the Python `readline` module is available, the REPL also has line editing,
 persistent history (`<config_dir>/hp48/calc48_history`), and tab-completion of
-meta-commands and `.key` names.
+meta-commands, `.key` names, and filenames (`.store`/`.load`/`.save`).
 
 **`.key` names** follow `../docs/keymap.md`: digits `0`–`9`, letters `a`–`z`
 (HP 48 alpha layout — combine with `alpha` to type letters), and named
