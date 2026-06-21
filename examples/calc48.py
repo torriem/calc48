@@ -16,8 +16,9 @@ file to run.
     printing the resulting stack; further args are pushed onto the stack first.
         python3 examples/calc48.py script.rpl
         python3 examples/calc48.py script.rpl 3 4        # stack 3,4 then run it
-  * Terminal, no file argument: an interactive REPL with a "calc48>" prompt
-    (commands: stack, clear, quit).
+  * Terminal, no file argument: an interactive REPL with a "calc48>" prompt.
+    Lines are RPL; a line starting with '.' is a meta-command -- `.help`,
+    `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.save [DIR]`, `.quit`.
         python3 examples/calc48.py
 
 The first error aborts file/stdin runs with a message on stderr and a non-zero
@@ -31,14 +32,15 @@ and place it.
 By default every run is a pristine, independent calculator and nothing is saved.
 To work in a persistent *profile* (its own hp48 + ram, separate from the ROM):
 
-    -s/--state DIR   load the state (hp48 + ram) from DIR instead of the blank
-                     image -- read-only by default
-    -w/--save        on clean exit, write the state back to that DIR (requires
-                     --state); the way to build up / update a profile
+    -s/--state DIR   load the state (hp48 + ram) from DIR (or start blank if DIR
+                     has none yet); DIR is also the save target
+    -w/--save        automatically write the state back to DIR on a clean exit
+                     (requires --state)
 
-So `--state DIR` alone runs an existing profile read-only; `--state DIR --save`
-loads it (or starts blank if DIR has no state yet) and persists changes on exit.
-In filter mode the save is skipped if the run aborts on an error.
+So `--state DIR` alone runs a profile without auto-saving (read-only unless you
+explicitly `.save` in the REPL); `--state DIR --save` also persists on exit.
+The auto-save is skipped if a file/stdin run aborts on an error.  In the REPL,
+`.save [DIR]` writes the current state on demand (to DIR, or the --state dir).
 
 Input conveniences (translated to HP 48 characters before compiling; both skip
 the inside of "..." string literals):
@@ -472,8 +474,48 @@ class Rpl:
         self.close()
 
 
+_META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
+  .stack        show the whole stack
+  .clear        empty the stack
+  .lcd [ascii]  show the calculator screen as braille (or ascii)
+  .save [DIR]   save state to DIR, else the --state dir
+  .help         this list
+  .quit         exit  (bare 'quit'/'exit' also work)"""
+
+
+def _meta(rpl, cmd):
+    """Run a dotted meta-command (`cmd` is the text after the '.').  Returns
+    True if the REPL should exit.  Unknown commands print help, never touch the
+    stack."""
+    parts = cmd.split()
+    name = parts[0].lower() if parts else ""
+    args = parts[1:]
+    if name in ("quit", "exit", "q"):
+        return True
+    if name in ("help", "h", "?", ""):
+        print(_META_HELP)
+    elif name == "stack":
+        rpl.show(limit=None)
+    elif name == "clear":
+        rpl.clear(); rpl.show()
+    elif name == "lcd":
+        ascii_mode = args and args[0].lower() == "ascii"
+        print(rpl.emu.lcd_ascii() if ascii_mode else rpl.emu.lcd_braille())
+    elif name == "save":
+        target = os.path.expanduser(args[0]) if args else rpl.save_dir
+        if not target:
+            print("  no --state directory; use '.save DIR' to choose one")
+        elif rpl.emu.save_state(target) == 0:
+            print("  saved state to %s" % target)
+        else:
+            print("  could not save state to %s" % target)
+    else:
+        print("  unknown command '.%s' -- '.help' for the list" % name)
+    return False
+
+
 def _repl(rpl):
-    print("calc48 -- User RPL.  Commands: stack, clear, quit.")
+    print("calc48 -- User RPL.  '.help' for commands.")
     rpl.show()
     while True:
         try:
@@ -481,13 +523,13 @@ def _repl(rpl):
         except (EOFError, KeyboardInterrupt):
             print()
             break
-        if line in ("quit", "exit"):
-            break
-        if line == "clear":
-            rpl.clear(); rpl.show(); continue
-        if line == "stack":
-            rpl.show(limit=None); continue
         if not line:
+            continue
+        if line in ("quit", "exit"):       # bare courtesy aliases
+            break
+        if line.startswith("."):           # meta-command namespace
+            if _meta(rpl, line[1:]):
+                break
             continue
         res = rpl.eval(line)               # mutates the persistent stack
         if res.error:
@@ -554,16 +596,15 @@ def main(argv):
     if args.save and not args.state:
         ap.error("--save requires --state")
 
-    profile = save_dir = None
-    if args.state:
-        if _profile_has_state(args.state):
-            profile = args.state           # load the existing profile
-        elif not args.save:
-            ap.error("no hp48/ram in %s (use --save to create a profile there)"
-                     % args.state)
-        # else: bootstrap a new profile from the embedded blank, save on exit
-        if args.save:
-            save_dir = args.state
+    # --state DIR is both the (optional) load source and the save target -- the
+    # interactive `.save` command can write to it even without --save.  --save
+    # just adds an automatic save on a clean exit.  An empty DIR starts blank
+    # (you can populate it and save).
+    profile = None
+    save_dir = args.state                   # None if --state absent
+    auto_save = args.save
+    if args.state and _profile_has_state(args.state):
+        profile = args.state                # load the existing profile
 
     rom = os.path.expanduser(args.rom) if args.rom else None
     if rom and not os.path.isfile(rom):
@@ -602,9 +643,9 @@ def main(argv):
                         rc = _run_stream(rpl, fp)
             elif rc == 0:
                 _repl(rpl)
-        # Persist only on a clean run, so an aborted run can't corrupt the
-        # profile.
-        if save_dir and rc == 0:
+        # Auto-save (only with --save) on a clean run, so an aborted run can't
+        # corrupt the profile.  (The REPL's `.save` is separate and explicit.)
+        if auto_save and rc == 0:
             if rpl.save() != 0:
                 print("calc48: failed to save state to %s" % save_dir,
                       file=sys.stderr)
