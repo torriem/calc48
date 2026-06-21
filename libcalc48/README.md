@@ -262,7 +262,7 @@ a worked example of driving libcalc48 from Python. It needs the HP 48 ROM (it is
 | `calc48 script.rpl` | terminal + file arg: run the file, print the stack |
 | `calc48 script.rpl 3 4` | file arg + extra args pushed onto the stack first |
 | `calc48 < script.rpl` | run a file non-interactively (redirect = filter mode) |
-| `calc48` | terminal, no file: interactive REPL (`stack` / `clear` / `quit`) |
+| `calc48` | terminal, no file: interactive REPL (`.help` for commands) |
 
 A file/stdin run aborts on the first error (message on stderr, non-zero exit).
 
@@ -285,6 +285,28 @@ ASCII input conveniences are translated to HP 48 characters: digraphs `<<` `>>`
 `->` `<=` `>=` `!=` → `« » → ≤ ≥ ≠`, and backslash escapes like `\pi` `\GS`
 `\oo` (what `→STR` / ASCII transfer use). Binary integers and algebraics are
 displayed via the calc's own `→STR`, so they show in the live base and as infix.
+
+**REPL meta-commands.** In the interactive REPL, a line that starts with `.` is
+a calc48 command (not RPL); the stack persists between lines. An unknown `.`
+command prints the list instead of touching the stack.
+
+| command | action |
+|---|---|
+| `.stack` | show the whole stack |
+| `.clear` | empty the stack |
+| `.lcd [ascii]` | show the calculator screen as braille (or `ascii`) |
+| `.key KEY...` | tap key(s) by name or hex matrix code, then show the screen |
+| `.save [DIR]` | save state to `DIR`, else the `--state` dir |
+| `.help` | list the commands |
+| `.quit` | exit (bare `quit`/`exit` also work) |
+
+`.key` names follow `docs/keymap.md`: digits `0`–`9`, letters `a`–`z` (HP 48
+alpha layout — combine with `alpha` to type letters), and named keys/aliases
+(`enter`, `del`, `back`, `lshift`, `rshift`, `alpha`, `on`, arrows
+`up`/`down`/`left`/`right`, `+ - * /`, `sto`, `eval`, `sin`/`cos`/`tan`, …); an
+unknown token falls back to a hex code. E.g. `.key 1 2 enter` (→ `12`),
+`.key rshift sin` (ASIN). `.save` works whenever `--state` was given (with or
+without `--save`), and `.save DIR` snapshots to any directory.
 
 ## See also
 
