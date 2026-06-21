@@ -246,15 +246,52 @@ supported (chosen at runtime); HP49 is not. See `../docs/stack_io_plan.md`.
 
 GPL v2 or later (inherited from x48). See the headers in each source file.
 
+## Command-line calculator (`examples/calc48.py`)
+
+A small RPL calculator built on the library — handy for trying things out and as
+a worked example of driving libcalc48 from Python. It needs the HP 48 ROM (it is
+*not* bundled — see below) and the embedded blank state (built once with
+`tools/make_blank_state.py`).
+
+**Input modes** (auto-selected; piped stdin always wins):
+
+| invocation | behavior |
+|---|---|
+| `echo "2 3 + 4 *" \| calc48` | piped stdin is the program; prints the stack (`1: 20`) |
+| `echo "+" \| calc48 3 4` | piped stdin + args: args are pushed first (→ `1: 7`) |
+| `calc48 script.rpl` | terminal + file arg: run the file, print the stack |
+| `calc48 script.rpl 3 4` | file arg + extra args pushed onto the stack first |
+| `calc48 < script.rpl` | run a file non-interactively (redirect = filter mode) |
+| `calc48` | terminal, no file: interactive REPL (`stack` / `clear` / `quit`) |
+
+A file/stdin run aborts on the first error (message on stderr, non-zero exit).
+
+**Options:**
+
+| option | meaning |
+|---|---|
+| `-r, --rom FILE` | ROM path; overrides `$HP48_ROM` and the default `<config_dir>/hp48/rom` |
+| `-s, --state DIR` | load the state (`hp48`+`ram`) from a profile dir instead of the blank image; read-only by default |
+| `-w, --save` | on a clean exit, write the state back to the `--state` dir (requires `--state`) — the way to build up a profile |
+
+The ROM is found via `--rom`, then `$HP48_ROM`, then `<config_dir>/hp48/rom`
+(`~/.config/hp48/rom` on Linux); if missing, calc48 prints where to download and
+place it. Without `--state` every run is a pristine, independent calculator and
+nothing is saved. `--state DIR` alone runs a profile read-only; `--state DIR
+--save` loads it (or starts blank if the dir has no state yet) and persists on a
+clean exit — the save is skipped if a run aborts on an error.
+
+ASCII input conveniences are translated to HP 48 characters: digraphs `<<` `>>`
+`->` `<=` `>=` `!=` → `« » → ≤ ≥ ≠`, and backslash escapes like `\pi` `\GS`
+`\oo` (what `→STR` / ASCII transfer use). Binary integers and algebraics are
+displayed via the calc's own `→STR`, so they show in the live base and as infix.
+
 ## See also
 
 - `../examples/hp48.py` — full Python `ctypes` binding (display + stack).
 - `../examples/rpl_eval.py` — use the emulator as a User RPL scripting engine
-  (feed source text, get Python values back) + a REPL.
-- `../examples/calc48.py` — a command-line RPL calculator built on it: pipe RPL
-  on stdin to evaluate and print the stack, or run with no input for a REPL.
-  `--state DIR` runs a persistent profile (its own hp48+ram) read-only;
-  add `--save` to write changes back on clean exit.
+  (feed source text, get Python values back) + a REPL.  `calc48.py` (above) is
+  the command-line front end built on the same `Rpl` class.
 - `../examples/ffi_smoke.c` — minimal headless embedding (links only libcalc48).
 - `../docs/keymap.md` — key-matrix codes and PC-keyboard mapping.
 - `../docs/stack_io_plan.md` — RPL stack read/write design and internals.
