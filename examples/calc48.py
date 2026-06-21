@@ -18,7 +18,8 @@ file to run.
         python3 examples/calc48.py script.rpl 3 4        # stack 3,4 then run it
   * Terminal, no file argument: an interactive REPL with a "calc48>" prompt.
     Lines are RPL; a line starting with '.' is a meta-command -- `.help`,
-    `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.save [DIR]`, `.quit`.
+    `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...` (tap
+    keys by name or matrix code), `.save [DIR]`, `.quit`.
         python3 examples/calc48.py
 
 The first error aborts file/stdin runs with a message on stderr and a non-zero
@@ -134,6 +135,45 @@ DOHSTR, DOSYMB = 0x02a4e, 0x02ab8       # binary integer, algebraic/symbolic
 ALPHA, SHR, ENTER, DROP, ON = 0x35, 0x15, 0x44, 0x40, 0x8000
 # "STR→" + ENTER :  S(alpha+SIN) T(alpha+COS) R(alpha+RIGHT) →(alpha+SHR+0)
 STR_TO_KEYS = [ALPHA, 0x34, ALPHA, 0x54, ALPHA, 0x60, ALPHA, SHR, 0x03, ENTER]
+
+# Friendly key names -> matrix code, for the `.key` meta-command (see
+# docs/keymap.md).  Digits and a-z follow the HP 48 alpha / PC-key layout, so
+# e.g. `s` is the SIN key and `g` is MTH; combine with `alpha` to type letters.
+KEY_NAMES = {}
+for _c, _code in zip("0123456789",
+                     (0x03, 0x13, 0x12, 0x11, 0x23, 0x22, 0x21, 0x33, 0x32, 0x31)):
+    KEY_NAMES[_c] = _code
+for _c, _code in zip("abcdefghijklmnopqrstuvwxyz",
+                     (0x14, 0x84, 0x83, 0x82, 0x81, 0x80, 0x24, 0x74, 0x73, 0x72,
+                      0x71, 0x70, 0x04, 0x64, 0x63, 0x62, 0x61, 0x60, 0x34, 0x54,
+                      0x53, 0x52, 0x51, 0x50, 0x43, 0x42)):
+    KEY_NAMES[_c] = _code
+KEY_NAMES.update({
+    "enter": 0x44, "on": ON, "alpha": ALPHA,
+    "lshift": 0x25, "shl": 0x25, "rshift": SHR, "shr": SHR,
+    "del": 0x41, "delete": 0x41,
+    "back": 0x40, "bs": 0x40, "bksp": 0x40, "backspace": 0x40,
+    "up": 0x71, "down": 0x61, "left": 0x62, "right": 0x60,
+    "space": 0x01, "spc": 0x01,
+    "+": 0x00, "plus": 0x00, "-": 0x10, "minus": 0x10,
+    "*": 0x20, "mul": 0x20, "/": 0x30, "div": 0x30,
+    ".": 0x02, "dot": 0x02, "period": 0x02, "'": 0x04, "tick": 0x04,
+    "neg": 0x43, "chs": 0x43, "eex": 0x42,
+    "sto": 0x64, "eval": 0x63, "sin": 0x34, "cos": 0x54, "tan": 0x53,
+    "sqrt": 0x52, "inv": 0x50, "pow": 0x51, "^": 0x51,
+    "mth": 0x24, "prg": 0x74, "cst": 0x73, "var": 0x72,
+    "nxt": 0x70, "next": 0x70,
+})
+del _c, _code
+
+
+def _parse_key(tok):
+    """A key token -> matrix code.  A known name (case-insensitive) wins;
+    otherwise the token is a hex matrix code (0x optional).  Raises ValueError."""
+    t = tok.lower()
+    if t in KEY_NAMES:
+        return KEY_NAMES[t]
+    return int(t[2:] if t.startswith("0x") else t, 16)
 
 
 class RplError(Exception):
@@ -478,6 +518,9 @@ _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .stack        show the whole stack
   .clear        empty the stack
   .lcd [ascii]  show the calculator screen as braille (or ascii)
+  .key KEY...   tap key(s) by name (a-z, 0-9, enter, del, back, lshift,
+                rshift, alpha, on, +, -, *, /, ...) or hex code, then show
+                the screen   (e.g. .key 1 2 enter ; see docs/keymap.md)
   .save [DIR]   save state to DIR, else the --state dir
   .help         this list
   .quit         exit  (bare 'quit'/'exit' also work)"""
@@ -501,6 +544,26 @@ def _meta(rpl, cmd):
     elif name == "lcd":
         ascii_mode = args and args[0].lower() == "ascii"
         print(rpl.emu.lcd_ascii() if ascii_mode else rpl.emu.lcd_braille())
+    elif name == "key":
+        if not args:
+            print("  usage: .key KEY...   names (a-z, 0-9, enter, del, back, "
+                  "lshift, rshift, alpha, on, +, -, ...) or hex codes")
+        else:
+            codes, bad = [], None
+            for a in args:
+                try:
+                    codes.append(_parse_key(a))
+                except ValueError:
+                    bad = a
+                    break
+            if bad is not None:
+                print("  unknown key %r -- use a key name or a hex code "
+                      "(see docs/keymap.md)" % bad)
+            else:
+                for c in codes:
+                    rpl._key(c)            # press + release (a tap)
+                rpl._settle(6)             # let the calc redraw
+                print(rpl.emu.lcd_braille())
     elif name == "save":
         target = os.path.expanduser(args[0]) if args else rpl.save_dir
         if not target:
