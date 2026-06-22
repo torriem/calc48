@@ -1,0 +1,2064 @@
+PRE-RELEASE VERSION, CONTACT THE AUTHOR BEFORE DISTRIBUTING
+-=---------------------------------------------------------------------------=-
+
+                          Guide to the Saturn Processor
+                            (With HP48 Applications)
+                          Compiled by Matthew Mastracci
+                                    Rev. 1.0b
+
+-=---------------------------------------------------------------------------=-
+
+                (c) Copyright 1995,96,97,98 by Matthew Mastracci
+                               All Rights Reserved
+
+
+-=---------------------------------------------------------------------------=-
+                                Table of Contents
+-=---------------------------------------------------------------------------=-
+
+1.0 Introduction
+   1.1 Abstract
+   1.2 DISCLAIMER
+   1.3 Acknowledgements
+   1.4 Revisions
+   1.5 History of the Saturn Chip
+
+2.0 Chip Information
+   2.1 Chip Specifications
+   2.2 Registers
+   2.3 Interrupts
+   2.4 Daisy-Chain Address Configuration
+   2.5 Yorke Chip
+   2.6 Internal 8-bit CRC
+
+3.0 Instruction Set
+   3.1 Instruction Field Selection
+   3.2 Generic Register Instructions
+   3.3 Program Control Instructions
+   3.4 Chip-Interface Instructions
+
+4.0 HP48GX/SX-Specific Peripheral Control
+   4.1 Hardware Registers
+   4.2 Display Driver Interface
+   4.3 Plug-In Card Interface
+   4.4 Bank Switching
+   4.5 UART Communication Controller
+   4.6 Serial Communication
+   4.7 IR LED/Receiver
+   4.8 Internal Speaker
+   4.9 Keyboard Interface
+   4.10 Timers
+   4.11 Miscellaneous
+
+5.0 HP48 PCB Diagrams
+   5.1 Calculator Overview
+   5.2 Pinout Reference
+   5.3 74HC174: Hex D-type flip-flop with clear
+   5.4 74HC00: Quad 2-input NAND gate   
+   5.5 RAM/ROM Memory
+   5.6 Ports    
+   5.7 LCD Drivers
+   5.8 Keyboard 
+   5.9 LCD Display 
+   5.10 Yorke Chip
+   5.11 Printed Circuit Board
+   5.12 IR Receiver
+   5.13 IR Transmitter for the G/GX
+   5.14 IR Transmitter for the S/SX
+   5.15 RS232 Circuits
+   5.16 Power Circuits
+   5.17 Backup Power
+   5.18 Notes
+
+6.0 How Do I...
+   6.1 ...Use Greyscale Graphics? 
+   6.2 ...Output a Solid Tone?
+   6.3 ...Read the Keyboard Directly?
+   6.4 ...Speed Up Time-Critical Calculations?
+   6.5 ...Send text through the serial port?
+   6.6 ...Send text through the IR port?
+   6.7 ...Control the IR transmitter/receiver directly?
+   6.8 ...Create My Own Interrupt Handler?
+
+7.0 Glossary
+
+8.0 Contributing/Contacting
+   8.1 Contacting the Author
+   8.2 Contacting Contributors
+
+-=---------------------------------------------------------------------------=-
+                               1.0 - Introduction
+-=---------------------------------------------------------------------------=-
+
+1.1 - Abstract
+     
+     The purpose of this guide is to be the most comprehensive and detailed 
+guide to the operation of the Saturn processor, useful for anyone trying to
+write and optimize ML code, use some of the chip tricks or just to gain an
+understanding of how the chip works.  
+
+1.2 - DISCLAIMER
+
+     This document is provided as is, with no warranty of any kind, either 
+expressed or implied.  You are free to copy and distribute the document 
+freely, in any format, provided no changes or additions are made to the text.  
+Matthew Mastracci or any contributing authors or sources shall in no event be 
+held liable to you or others for damages of ANY kind, incidental or 
+consequential, arising from the use or inability to use the information 
+contained herein.  
+
+WARNING: Improper experimentation with Saturn-architecture chips will cause 
+them to CATCH FIRE AND EXPLODE, KILLING YOU INSTANTLY.  Well, maybe not.  In 
+any case, be careful with undocumented hardware registers or ones that deal 
+with the LCD voltage in any way.  If you keep away from these, you shouldn't 
+have to worry about shelling out another $150 for a replacement calc.  Also,
+opening your calculator's case is a DANGEROUS ACTIVITY and is in NO WAY 
+suggested by the author of this document, any of the contributors or Hewlett
+Packard.  Don't try it if you don't know what you're doing!
+
+1.3 - Acknowledgements
+
+     To create a guide like this, information was taken from many sources 
+published in many different formats.  The author would like to acknowledge 
+the following authors and sources for contributing directly or indirectly to 
+this project:
+
+Alonzo Gariepy          Controlling the Beeper/HP28S Processor Notes
+Dan Allen               HP Calculator History
+Derek S. Nickel         Saturn Instruction Set Guide
+Detlef Mueller          Speed Up Your HP48
+Douglas R. Cannon       S/SX and G/GX Programming Tips
+Eddie C. Dost           x48 Source
+Gary Friedman           Plug-In Card Pinouts
+Hewlett Packard         HP48 Software Development Tools
+Jan Brittenson          UART Basic Usage
+Joe Ervin               HP48SX Keyboard Input in ML
+Mika Heiskanen          Sorted Entries Listing
+Philippe Teuwen         HP48G/GX PCB Reference
+Regis Duchesne          Les interruptions de la HP48
+Dave Arnett             His zillions of informative postings
+
+-and-
+
+Various posters to comp.sys.hp48
+
+     Much thanks to the following people, who have offered large amounts of
+written material and corrections:
+
+Detlef Mueller
+Martin Prajza
+Philippe Teuwen
+Eric Rechlin
+     
+     Please notify the author of any errors or omissions.
+
+1.4 - Revisions
+
+     The document has gone through the following revisions:
+
+Revision    Date      Changes
+0.00a-0.99  ??/??/??  - Early pre-release versions, incomplete
+1.0         16/02/98  - A lot of information has been revamped and rewritten
+1.0b        20/02/98  - Fixed many spelling mistakes, thanks to Eric Rechlin
+
+1.5 - History of the Saturn Chip
+
+     The Saturn Microprocessor has been the core processor unit of many 
+calculators for the past ten years.  Hewlett Packard has used it for each and
+every one of its most recent calculators to create powerful engineering 
+devices without sacrificing affordability.  The following list shows the 
+evolution of the Saturn chip as parts of Hewlett Packard calculators:
+
+Calculator        Release Date          Chip Version     Analog/Digital IC
+HP71B (early)     02/01/84              1LF2              -
+HP71B (later)     ??/??/??              1LK7              -
+HP18C             06/01/86              1LK7              -
+HP28C             01/05/87              1LK7              -
+HP17B             01/04/88              1LT8             Lewis
+HP19B             01/04/88              1LT8             Lewis
+HP27S             01/04/88              1LT8             Lewis
+HP28S             01/04/88              1LT8             Lewis
+HP48SX            03/16/91              1LT8             Clarke
+HP48S             04/02/91              1LT8             Clarke
+HP48GX            06/01/93              1LT8             Yorke
+HP48G             06/01/93              1LT8             Yorke
+HP38G             09/??/95              1LT8             Yorke
+
+
+-=---------------------------------------------------------------------------=-
+                             2.0 - Chip Information
+-=---------------------------------------------------------------------------=-
+
+     All information contained in this section relates to the Saturn processor
+as installed in Hewlett Packard calculators (either in general or dealing with
+the HP48 series), including any coprocessors or peripherals that may be 
+attached to it.  Note that most of this information relates to any processor
+with Saturn architecture.
+
+2.1 - Chip Specifications
+
+Universal Specifications 
+
+Data path width:       4 bits (nibble)
+Maximum address width: 20 bits
+Logical address space: 512kb (or 1024 kilonibbles)
+Maximum register size: 64 bits (working and scratch registers)
+
+HP48S/SX Specific
+
+Integrated into: Clarke IC
+Clock speed: 2Mhz
+ROM size: 256kb
+RAM size: 32kb (S, expandable to 128kb) or 128kb (SX) 
+Card ports: 2
+  Port 1: up to 128kb
+  Port 2: up to 128kb
+
+HP48G/GX Specific
+
+Integrated into: Yorke IC
+Clock speed: ~4Mhz (varies with temperature)
+ROM size: 512kb
+RAM size: 32kb (G, expandable to 128kb) or 128kb (GX)
+Card ports: 2
+  Port 1: up to 128kb
+  Port 2: up to 128kb accessible simultaniously, up to 4Mb with bank switching
+
+2.2 - Registers
+     
+     The Saturn processor has 19 registers:
+
+      - four 64-bit working registers, A, B, C and D;
+      - five 64-bit scratch registers, R0, R1, R2, R3 and R4;
+      - two 20-bit data address registers, D0 and D1;
+      - one eight-level, 20-bit FIFO stack, RSTK;
+      - one 4-bit pointer register, P;
+      - one 20-bit program counter register, PC;
+      - one 16-bit input register, IN;
+      - one 12-bit output register, OUT;
+      - one 1-bit carry flag;
+      - one 16-bit status register, ST; and
+      - one 4-bit hardware status register, HST.
+     
+Working Registers (A, B, C, D)
+
+     Most of the Saturn opcodes operate between two working registers or a 
+working register and another register.  The working registers are used for the
+majority of all calculations and also as parameters for a lot of ML-code 
+subroutines.  Each of the working registers is 64-bits long, but can be
+accessed and operated on in smaller parts with field-select specifiers.  
+
+Scratch Registers (R0, R1, R2, R3, R4)
+
+     The scratch registers are 64-bits long like the working registers, but 
+do not have many operations other than assignment to manipulate them.  They
+are used to temporarily hold register contents in complex operations or to 
+act as additional parameters to some ML-code subroutines.
+
+Address Pointer Registers (D0, D1)
+     
+     The address pointer registers hold 20-bit addresses.  They are used mainly
+for reading from and writing to memory, either directly or indirectly.  
+
+Return Stack (RSTK)
+
+     The return stack has a 20-bit levels for storing return addresses and
+pushed register values.  Because the interrupt system requires a single level
+for saving variable values, the stack must be used very carefully. 
+
+Pointer Register (P)
+
+     The pointer register can be used as a field selector for the working 
+registers.  It is often used for efficient program loops with small numbers 
+(many of its opcodes are two or three nibbles long).
+
+Program Counter (PC)
+
+     The program counter contains the 20-bit address of the next instruction 
+to be executed by the CPU.  It is incremented by the chip after reading each 
+instruction.
+
+I/O Registers (IN, OUT)
+
+     The input and output registers are 16 and 12 bits long, respectively.  
+They are used for communication with the system bus and to control any   
+peripherals connected to the chip.  The IN register is read-only and the OUT
+register is write-only.
+
+Carry Flag
+
+     The carry flag is used for program control.  In arithmetic operations, it
+indicated whether a result has overflowed, underflowed, carried or borrowed.
+In test operations, it indicates that the test is true.
+
+Flag Register (ST)
+
+     The flag register is 16-bits long, representing 16 different flags.  The 
+top four bits are usually used to control the state of the operating system, 
+while the other 12 are used to control the state of the running program or
+subroutine and can be accessed as a single register.
+
+Hardware Status Register (HST)
+
+     The hardware status register contains four bits that represent the state 
+of the Saturn processor.  They can only by set by external events, so testing
+for a particular state involves clearing it first.  Each of the individual 
+bits can be tested for and operated on by itself, however.  In order of least
+to most significant, the bits are:
+
+      - XM: e(X)ternal (M)odule missing
+
+          This bit is set by the RTNSXM instruction.  Since the internal 
+          representation of RTNSXM is 00, this bit is effectively set when a 
+          gosub jumps to a nonexistent memory address.
+
+      - SR: (S)ervice (R)equest
+
+          This bit is set if a service request from the SREQ? instruction is 
+          pending on the system bus.
+
+      - SB: (S)ticky (B)it
+
+          This bit is set when a non-zero bit is shifted off the right end of 
+          a working register by a shift operation.
+
+      - MP: (M)odule (P)ulled
+
+          This bit is set whenever the *NINTX line is pulled low, regardless 
+          of whether an interrupt is executed or not.
+
+2.3 - Interrupts
+
+     When an interrupt is executed on the Saturn chip by an interrupt signal,
+the chip disables interrupts, saves the program counter register on the return 
+stack and executes a jump to the memory location 0000Fh.  It also sets an 
+internal flag indicating that no more interrupts are to be serviced until a 
+RTI (return, reset interrupts) instruction is executed.  All interrupts that 
+occur during this state will cause the chip to flag an internal pending 
+interrupt flag, causing it to repeat the interrupt handling routine before 
+returning.  The first task of the ROM interrupt handler is to set bit 14 of 
+ST, meaning that there are pending interrupts left to be serviced if the 
+routine terminates prematurely (see below).  Because the OUT register is 
+write-only, the chip cannot save its state and therefore the ROM routine 
+expects that the OUT register be shadowed in RAM for recovery.
+
+     Some of the actions that can cause maskable interrupts are:
+
+ - Character received by the UART
+ - Character placed in the UART transmit holding register
+ - Keyboard button down/repeat
+ - Timer expiry
+ - Low battery condition
+ - IR emission/receipt
+
+     The actions that cause non-maskable interrupts (NMI) are:
+
+ - ON-key press
+ - VLBI (very low battery interrupt)
+
+     The ROM interrupt handler at 0000Fh must examine each of these 
+possibilities and act accordingly.  
+
+Disabling Interrupts
+
+     To disable interrupts completely, bit 15 of the status register must be
+cleared.  If the interrupt handler finds this bit set, the interrupt routine 
+will immediately return without any interrupt processing to the previous 
+location.  Because the routine did not return with RTI, however, the chip 
+believes that it is still within the interrupt routine and will ignore all   
+interrupts until they are reenabled with RESET or RTI.  They will not be 
+serviced until bit 15 of ST is restored, however.  
+
+           CAUTION: NO INTERRUPTS WILL BE SERVICED IF BIT 15 IS SET!  
+
+     Use this method with extreme caution.  The ON, ON-C and ON-A-F key 
+combinations will not affect the program.  Only the RESET button, located 
+under one of the rubber feet of the calculator and connected to the reset line 
+of the chip, will do anything.  The consequence of this is that a low-power
+state will not come to the attention of the interrupt handler.  If a program
+is allowed to run continuously in this state, the calculator will not be able
+to enter the battery-saving deep sleep and the batteries may be completely
+drained, causing complete memory loss.  
+
+     To disable the automatic CPU keyboard scan every 1ms, execute an INTOFF 
+instruction.  This will in turn disable the 16Hz key-repeat scan, which can 
+deplete system resources dramatically.
+
+Interrupt Flags
+
+ST Bit   Description
+12       Set if DeepSleep should stay awake (forced wakeup request)
+13       Set if interrupt has occurred (latched, clear to test)
+14       Set if interrupt pending, cleared if no interrupts pending
+15       Set if interrupts enabled, cleared if all interrupts disabled
+
+     These flags are similar to the internal Saturn interrupt flags, as 
+interrupts not serviced because of the cleared interrupt enable flag will 
+cause the pending interrupt flag to be set.
+
+2.4 - Daisy-Chain Address Configuration
+                             
+     Owing to the 20-bit address space, there is half a megabyte of memory 
+available for use by all modules connected to the Saturn chip.  Each module 
+in use has a certain window in this 20-bit address space in which it can be
+accessed.  In the HP48, these modules are:
+
+         S/SX                      G/GX
+Device   Description               Description
+ROM      ROM address space         ROM address space
+HDW      Hardware registers        Hardware registers
+RAM      RAM address space         RAM address space
+CE1      Port 1 control            Bank select
+CE2      Port 2 control            Port 1 control
+NCE3     Unused                    Port 2 control
+
+     To divide the memory up, the Saturn uses a technique called daisy-chain 
+configuration.  This involves configuring each module in a specific order as
+to which address window it takes up.  Each window must be at least four 
+kilonibbles (two kilobytes).  The opcodes used for configuring the modules
+are:
+
+RESET
+
+     Unconfigures all of the modules, places RAM at the default address.
+
+CONFIG
+
+     Configures a module, using data in the C register.  For most of the 
+modules, two CONFIG instructions must be executed to completely configure it:
+
+1)  The first CONFIG call specifies the size of the module's address space in 
+nibbles.  C is loaded with #100000 minus the value.  The size must be a 
+multiple of #00100 and must be greater than 4 kilonibbles (#01000).  The 
+hardware registers do not require a size CONFIG call and therefore the first 
+and only CONFIG call in this situation will be for its address.
+
+2)  The second CONFIG call specifies the logical address of the module's 
+address space.  This logical address must be a multiple of #00100 and will 
+correspond to the physical address space of the module.
+
+     The devices are configured in the order of: ROM (always configured), HDW, 
+RAM, CE1, CE2, NCE3.  If two addresses overlap, however, the priority for
+which device occupies the address space is: HDW, RAM, CE2, CE1, NCE3, ROM.
+
+UNCNFG
+
+     Unconfigures a module.  The module is specified by placing its initial  
+logical address value in the address field of C.
+
+C=ID
+
+     Gets the ID of the next module to be configured and the last 
+configuration address into the address field of the C register like so:
+
+Bits (MSB to LSB)     Description 
+xxxxxxxxxxxx          Most significant three nibbles of last configuration 
+                      address specified
+            y         1 if the next CONFIG data will specify an address; 0 if
+                      it will specify a size.
+             zzzzzzz  The ID of the next module to be configured.
+
+     If all modules are configured, the result in C will be #00000.  The ID 
+numbers returned are as follows:
+
+ID      Module
+#01     NCE3
+#03     RAM
+#05     CE1
+#07     CE2 
+#19     HDW
+
+2.5 - Yorke Chip
+
+     In the HP48G series, the Saturn processor is integrated onto a mixed 
+analog and digital chip called the Yorke.  The Yorke processor has an 8-bit 
+data bus and a 19-bit address bus structure.  See the PCB section for 
+information on the connections to the various peripherals.
+            
+2.6 - Internal 8-bit CRC
+
+     The CRC is updated every time a nibble is read from memory.  To CRC a 
+block of memory, simply write zero into the CRC hardware register at #00104h
+and #00105h and read all of the bytes you wish to CRC.  The CRC hardware will
+take the bytes straight of the bus and the register will contain the new CRC.  
+Remember to disable interrupts, as the interrupt handler will corrupt the CRC
+value.  The CRC is calculated like so: 
+
+Saturn CRC Formula                            
+                       
+NewCRC = (OldCRC shr 4) xor (((OldCRC xor NibbleValue) and #0Fh) * #1081h)
+
+C Equivalent
+
+crc = (crc >> 4) ^ (((crc ^ nibble) & 0xf) * 0x1081);
+
+Pascal Equivalent
+
+CRC := (CRC shr 4) xor (((CRC xor Nibble) and $0f) * $1081);
+
+
+-=---------------------------------------------------------------------------=-
+                              3.0 - Instruction Set
+-=---------------------------------------------------------------------------=-
+
+     Note: for an excellent detailed explanations and timings of all Saturn
+instructions, refer to the Saturn Assembly Language Guide packaged with 
+Hewlett Packard's HP48 Software Development Kit (SASM.DOC).
+
+3.1 - Instruction Field Selection
+
+     Saturn instructions dealing with working registers can operate on 
+specific parts or fields of the working registers.  Some of the fields 
+represent portions of BCD numbers to simplify some real-number calculations.
+
+Field Selectors:                       
+      
+Field   Nibbles   Selection
+P       P         Nibble indicated by P register
+WP      P-0       Nibbles P through 0, inclusive ("word thru pointer")
+XS      2         BCD exponent sign
+X       2-0       BCD exponent and exponent sign
+S       15        BCD mantissa sign 
+M       14-3      BCD mantissa 
+B       1-0       Byte field (8-bit)
+A       4-0       Address field (20-bit)
+W       15-0      Word (64-bit) 
+
+     Generally, fields in this document are communicated in one of two ways:
+
+ - Full-form, ie: "the address field of C" or "nibbles 3-0 of A"
+ - Parameter-form, ie: "C(A)" or "A(3:0)"
+
+     The first example refers to nibbles 4 to 0 of C and the second refers to
+nibbles 3 to 0 of A.
+
+3.2 - Generic Register Instructions
+
+[incomplete]
+
+3.3 - Program Control Instructions
+
+[incomplete]
+
+Opcode: PC=(A)           Instruction: 808C
+
+     Indirect jump, where A(A) is the address of the destination address.
+
+Opcode: PC=(C)           Instruction: 808E
+
+     Indirect jump, where C(A) is the address of the destination address.
+
+3.4 - Chip-Interface Instructions
+     
+     The following instructions control the operation of and interface at a 
+low-level with the Saturn chip:
+
+Opcode: ?HS=0  n         Instruction: 83nyy
+
+     Tests if the hardware status register, masked with n, is equal to zero. 
+
+Opcode: ?ST=0  n         Instruction: 86nyy
+
+     Tests if bit n of ST is cleared.
+
+Opcode: ?ST=1  n         Instruction: 87nyy
+
+     Tests if bit n of ST is set. 
+
+Opcode: A=IN             Instruction: 802
+     
+     Copies the value of the IN register to A(3:0).
+
+Opcode: BUSCB            Instruction: 8083
+
+     Enters bus command B onto the system bus.  The bus commands are obsolete 
+in the HP48 series.
+
+Opcode: BUSCC            Instruction: 80B
+     
+     Enters bus command C onto the system bus.
+
+Opcode: BUSCD            Instruction: 808D
+     
+     Enters bus command D onto the system bus.
+     
+Opcode: C=ID             Instruction: 806
+
+     Returns the 5-nibble ID number of the next module to be CONFIGured.  See 
+the Daisy-Chain Configuration section for more information.
+
+Opcode: C=IN             Instruction: 803
+
+     Copies the value of the IN register to C(3:0).  This opcode can only be
+executed from an even-nibble address.  Use the =CINRTN entry point to call 
+it from code.
+
+Opcode: C=RSTK           Instruction: 07
+
+     Pops the last return stack address into the address field of C.
+
+Opcode: C=ST             Instruction: 09
+
+     Copies the lower 12 bits of ST into C(X).
+
+Opcode: CLRHST           Instruction: 82F
+
+     Clears the XM, SB, SR and MP hardware status registers.
+
+Opcode: CLRST            Instruction: 08
+
+     Clears the lower 12 bits of ST.
+
+Opcode: CONFIG           Instruction: 805
+
+     Configures a module connected to the processor.  See the Daisy-Chain
+Configuration section for more information.
+
+Opcode: CSTEX            Instruction: 0B
+
+     Exchanges the lower 12 bits of ST with C(X).
+
+Opcode: HS=0   n         Instruction: 82n
+
+     Generic form of MP/SB/SR/XM=0 opcodes.  Clears HST with mask n.
+
+Opcode: INTON            Instruction: 8080
+
+     Enables maskable interrupts.  See the Interrupts section for more 
+information.
+
+Opcode: INTOFF           Instruction: 808F
+
+     Disables maskable interrupts.  See the Interrupts sections for more 
+information.
+
+Opcode: NOP3             Instruction: 420
+
+     Represents three "no operation" opcodes.  The chip will skip over these 
+three nibbles.
+
+Opcode: NOP4             Instruction: 6300
+
+     Represents four "no operation" opcodes.  The chip will skip over these 
+four nibbles.
+
+Opcode: NOP5             Instruction: 64000
+
+     Represents five "no operation" opcodes.  The chip will skip over these 
+five nibbles.
+
+Opcode: OUT=C            Instruction: 801
+
+     Copies C(X) into the OUT register.
+
+Opcode: OUT=CS           Instruction: 800
+
+     Copies C(0) to the lowest nibble of the OUT register.
+
+Opcode: RESET            Instruction: 80A
+
+     Resets the address space of all modules connected to the processor.  See 
+the Daisy-Chain Configuration section for more information.
+
+Opcode: RSTK=C           Instruction: 06
+
+     Pushes the address field of C onto the return stack.
+
+Opcode: RSI              Instruction: 80810
+
+     Resets the interrupt-detection ability of the Saturn chip.
+
+Opcode: RTI              Instruction: 0F
+
+     Returns from an interrupt routine and enables interrupt detection.
+
+Opcode: SETDEC           Instruction: 05          
+
+     Sets the chip into DEC mode.  Controls the operation of the carry flag 
+and affects the results of some arithmetic operators.  
+
+Opcode: SETHEX           Instruction: 04          
+
+     Sets the chip into HEX mode.  Controls the operation of the carry flag 
+and affects the results of some arithmetic operators.  
+
+Opcode: SHUTDN           Instruction: 807
+
+     Stops the CPU at this instruction until a wake-up is requested.
+
+Opcode: SREQ?            Instruction: 80E
+
+     Copies the a service request response from the system bus to C(0).  Sets
+SR=1 if the request response exists.  The bits of C(0) set represent the 
+device that requests service:
+
+Bit  Device
+0    Display Driver (timer)
+1    HP-IL Mailbox
+2    Card Reader
+3    Unused
+
+Opcode: ST=0   n         Instruction: 84n
+
+     Clears bit n of ST.
+
+Opcode: ST=1   n         Instruction: 85n
+
+     Sets bit n of ST.  
+
+Opcode: ST=C             Instruction: 0A
+
+     Sets the lower 12 bits of ST equal to C(X).
+
+Opcode: UNCNFG           Instruction: 804
+
+     Unconfigures a module connected to the processor.  See the Daisy-Chain
+Configuration section for more information.
+
+
+-=---------------------------------------------------------------------------=-
+                   4.0 - HP48GX/SX-Specific Peripheral Control
+-=---------------------------------------------------------------------------=-
+
+4.1 - Hardware Registers
+ 
+     For most of the devices below, hardware registers are used to control 
+many operational aspects.  Writing to one of the hardware registers, mapped
+between the memory locations #00100h and #0013F, will affect the device   
+attached to it.  Note that some flags occupy only a single nibble within the
+register, so care must be taken to preserve the states of the other bits.  
+Also, some registers are read-only or write-only, indicated by (R/O) and 
+(W/O), respectively.
+
+4.2 - Display Driver Interface
+  
+     The LCD attached to the HP48 is 131 pixels horizontally by 64 pixels 
+vertically.  In the HP48SX, the display is refreshed at 64Hz.  This causes  
+some flicker to occur when viewing the display under fluorescent lights in 
+North America, as power is regulated at 60Hz. 
+
+     The following registers affect the LCD display:
+
+Register   Bits   Description
+              
+#00100h    0-2    Control the eight-pixel vertical offset of the display
+           3      Display-enable flag
+#00101h    All    Four LSBs of the five-bit contrast control value
+#00102h    0      MSB of the contrast control value
+           1-3    Display test control
+#00103h    All    Display test control
+           3      Enable no-refresh-mode (possibly dangerous!)
+#0010Bh    0      Left-shift indicator
+           1      Right-shift indicator
+           2      Alpha indicator
+           3      Alert indicator
+#0010Ch    0      Busy indicator
+           1      I/O indicator
+           2      XTRA - Reserved for future use
+           3      Indicator-enable flag
+
+#00120     All    LSBs of the five-nibble display address base register (W/O)
+  ...             
+#00124     All    MSBs of the display address base register 
+
+#00125     All    LSBs of three-nibble display line offset register (W/O)
+  ...             (right margin of screen)
+#00127     All    MSBs of the display line offset register
+
+#00128     All    LSBs of vertical line count (R/O)
+  ...
+#00129     0-1    MSBs of vertical line count (R/O)
+           2      M32
+           3      DA19 Control (set is card port 2, cleared is upper ROM)
+
+#00128     All    LSBs of screen height not including menu (W/O)
+  ...
+#00129     0-1    MSBs of screen height not including menu (W/O)
+
+#00130     All    LSBs of menu GROB address (W/O)
+  ...
+#00134     All    MSBs of menu GROB address (W/O)
+
+     Note that registers #00128 and #00129 have many purposes.  When reading
+from them, they return the current LCD retrace row (with DA19 and M32 in the
+upper two bits).  When writing, they control the number of rows drawn of the 
+main screen grob before switching to the menu grob (again with DA19 and M32 
+controlled by the upper bits). 
+
+     The display address base register at #00120 will only use even 
+addresses.  If you supply an odd address, it will zero the LSB and use the
+result as the new base.
+
+4.3 - Plug-In Card Interface
+    
+     Both the HP48GX and HP48SX have two card ports.  Both of these 
+calculators use a modified version of the Seiko/Epson 40-pin card interface.
+On the HP48GX, however, card port 2 can support a card of 32 x 128kb banks, 
+equaling 4Mb, through a technique called bank-switching.  
+
+     The following hardware registers affect the plug-in card interface:
+
+Register   Bits   Description
+#0010Eh    0      Software Interrupt
+           1      Set Module Pulled
+           2      Run Card Detect  
+           3      Enable Card Detect
+#0010Fh    0      Card present in port 2  [note the reversal]
+           1      Card present in port 1
+           2      Writing on port 2 allowed
+           3      Writing on port 1 allowed
+
+     The pinouts on the card interface are as follows:
+
+Pin    Signal   I/O    Description
+1      VDD      Power  Power
+2      VBB      Out    Card battery check (if Vbb is low, the calculator will 
+                       signal "low battery")
+3      A0       In     Pins 3-19, 31, and 32 are the address lines (pin 32 is 
+                       inverted) 
+  ...
+19     A16      In     Address line 16
+20     NWE      In     Not write enable (write protect)
+21     CE       In     Card Enable 
+22     NOE      In     Not output enable
+23     D0       In/Out Pins 23-30 are the eight data lines
+  ...           
+30     D7       In/Out Data line 7 
+31     A17      In     Address line 17 (for port 2)
+32     NA18     In     Address line 18 (for port 2)
+33     XSCL     In     Display data clock (A19 for port 2)
+34     LP       In     Display data horizontal sync (A20 for port 2)
+35     LD[0]    In     Display data (A21 for port 2)
+36     LD[1]    In     Display data (BEN: Bank Switching Enabled for port 2)
+37     CDT      Out    Card detect/type, must be tied high for writes to 
+                       operate.
+38     NC              No connection [write-protect in Seiko/Epson]
+39     NC              No connection [card-present in Seiko/Epson]
+40     GND      Power  Ground
+
+Note: In refers to input into the card and Out refers to output to the card.
+
+     The CDT line (pin 37) helps the calculator determine which of the 
+following states applies:
+
+ - Empty: the CDT pin is open
+ - ROM: the CDT pin is low (all write operations are disabled)
+ - RAM: the CDT pin is tied high and the card passes the RAM size test
+ - UNKNOWN DEVICE: the CDT pin is high and the card fails the RAM size test
+   (user-level reads and writes are disabled as if nothing were present, but 
+   machine level reads and writes work on the memory)
+
+     In a normal Epson/Seiko card, pins 37 and 38 would represent the card's 
+write-protect and present state, respectively.  These two are represented by
+the CDT line and so they serve no purpose on the HP48.
+
+     XSCL, LP, LD[0] and LD[1] are responsible for controlling overhead 
+projector displays.  The data is sent through LD[0] and LD[1] in two serial 
+bit streams in sync with the shift clock XSCL.  The LP signal provides 
+horizontal sync control.  For each row, 131 columns of display data are sent 
+left to right, contained in the 64 shifts before each LP pulse and the two 
+shifts immediately following the LP.  There is no vertical sync.  An overhead
+projector interface must be plugged into port 1, as the four pins used to 
+control the display are converted into address lines in port 2.
+
+4.4 - Bank Switching
+(HP48GX only)
+
+     Bank switching on the HP48GX is handled through the CE1 controller, which
+controls the external latch (the HC174).  It is usually configured at the 
+address of #7F000.  By reading a value from somewhere in logical memory space 
+assigned to the bank manager, one of the banks on the card will be activated 
+and can be then read from.
+
+To Select a Bank                                  
+
+D0=#7F000 + #40 + 2 * n   Where n is the bank you wish to select, from 0-31
+C=DAT0 B                  Throw away the byte just read
+
+     When the byte is read from the bank manager, the state of the latch chip
+on the circuit board is changed so that the correct bank address is presented
+on the memory card.  The data read from the bank manager is useless, but the
+last few bits of address from which you read are transferred to the bank 
+address latch chip.  To access different banks on card port 2, the BEN line
+must be high (by adding a value of #40).  The physical address of the bank 
+manager that you read from represents:
+
+Bits (MSB to LSB)   Description
+x                   BEN (Bank-switching Enabled)
+ yyyyy              Active bank select, 0-31    
+      z             Not used (comes from nibble to byte conversion)
+
+     Because of the configuration of the Yorke IC inside the calculator, you
+can access only card port 2 or upper ROM at any one time.  Upper ROM (NMA18) 
+and card port 2 (NCE3) are both controlled by pin 85 of the Yorke IC.  The two 
+functions are multiplexed onto pin 85.  DA19, in the control register, 
+controls the multiplexer and determines which is active.  DA19 is mirrored 
+into the BEN bit of the external latch (bank address latch chip), on bit 6
+and can be controlled with bit 3 of hardware register #00129 (also used for 
+display purposes).  The lower five bits of the external latch represent the 
+active bank.
+
+     Upper ROM and card port 2 are mutually exclusive.  You cannot access any
+instructions or data located in the upper half of ROM when card port 2 is 
+enabled.  
+
+To Enable Card Port 2 (disabling upper ROM)
+
+1.  Set DA19 so that upper ROM is disabled and the NCE3 controller (card port
+2) is enabled
+2.  Read from an address in the bank manager so that bit 6 of the external 
+latch (BEN) is high (remember to keep bit 6 high when switching banks)
+
+To Disable Card Port 2 (enabling upper ROM)
+
+1.  Set the external latch so that bit six is a 0
+2.  Set DA19 for ROM access
+
+     When programming the HP48GX, remember that card port 2 is only enabled 
+when it is required.  Ensure that when the card port is not going to be 
+accessed, upper ROM is reenabled.  This will prevent programs that assume 
+upper ROM is enabled from trying to read from the part that doesn't exist
+(likely crashing the machine).
+
+4.5 - UART Communication Controller
+  
+     The UART controller in the HP48 is capable of handling I/O throughput of 
+up to 9600 baud.  It has two single-byte holding registers for reading and 
+writing and will send output to the active I/O device (either IR or the serial
+port).
+
+     The following hardware registers affect the UART controller:
+
+Register   Bits   Description
+#0010D     0-2    3-bit baud rate register 
+                  Values are: 1200 1920 2400 3840 4800 7680 9600 15360
+           3      UART Clock (R/O)
+#00110     All    UART Interrupt Control Register
+           0      Enable interrupt on RECV buffer receiving 
+           1      Enable interrupt on RECV buffer full 
+           2      Enable interrupt on XMIT buffer empty 
+           3      Wire serial port enabled 
+#00111     All    UART RECV Control Register
+           0      Character present in receive buffer 
+           1      UART receiving character 
+           2      Error occurred while receiving
+           3      Not used
+#00112     All    UART XMIT Control Register
+           0      XMIT buffer contains unsent character
+           1      XMIT is transmitting character in buffer
+           2      LPB
+           3      Break received
+#00113     All    Clear receive error if written to (W/O)
+#00114     All    LSBs of RECV holding buffer character (R/O)
+#00115     All    MSBs of RECV holding buffer character (R/O)
+#00116     All    LSBs of XMIT holding buffer character (W/O)
+#00117     All    MSBs of XMIT holding buffer character (W/O)
+
+Receiving
+
+     The interrupts associated with the serial port are controlled by register
+#00110h.  When the first bit of a character is received, an interrupt will be 
+generated if bit 0 of #00110 is set and bit 1 of #00111 will be set.  When the 
+character has been received, bit 1 of #00111 will be cleared and bit 0 will 
+then be set.  If bit 1 of #00110 is set, an interrupt is generated.  The 
+interrupt routine captures the received character and sets bit 0 of #00111 
+to zero, indicating that the buffer is now ready to receive again.
+
+Transmitting
+
+     When a character is written to the XMIT holding register, bit 0 of 
+#00112 is set.  The UART then clears bit 0 and sets bit 1, indicating that 
+the data is now being sent.  Once the UART has finished transmitting the 
+character, bit 1 is cleared.  If bit 2 of #00110 is set, an interrupt is 
+generated, which then puts the next byte into the XMIT holding buffer and 
+sets bit 0 of #00112.
+
+4.6 - Serial Communication
+
+     The serial interface of the calculator is located in the center of the
+front IR cover.  There are four pins in the jack, representing from right to
+left: 
+ 
+ - Shield: electrostatic protector
+ - TX: transmit (to other)
+ - RX: receive (from other)
+ - GND: ground
+
+     These are connected to pins 1, 3, 2 and 7 of a 25-pin jack and to the
+casing and pins 2, 3 and 5 of a 9-pin jack, respectively.
+
+4.7 - IR LED/Receiver
+ 
+     The IR LED and receiver are located on the front of the calculator, to
+the right of the serial port (when viewed from the front).  The LED bulb is 
+on the left and the receiver assembly in on the right.  Note that IR I/O is 
+half-duplex, as reflections from the IR assembly cover can introduce feedback 
+into the system.  
+     
+     The following hardware registers affect the IR setup:
+
+Register   Bits   Description
+#0011A     All    IR Control register
+           0      IR interrupt occurred  
+           1      IR interrupts enabled  
+           2      Direct IR LED control disabled (RS232, UART-controlled mode)
+           3      Latched IR sampling bit/IR being received
+#0011C     All    IR Status register
+           0      IR buffer full
+           1      IR buffer empty 
+           2      IR empty-buffer interrupts allowed
+           3      IR LED enable flag
+#0011D     0      LED buffer
+           1-3    (zeroes)
+
+4.8 - Internal Speaker
+
+     The internal speaker of the HP48 is controlled through the upper two bits 
+of the 12-bit OUT register.  By setting the register to one of the following 
+values, the speaker can be controlled:
+
+OUT value      Effect
+#0xx           No speaker power (0)
+#8xx           Positive displacement (+)
+
+     To generate steady tones, simply alternate between the two states of the 
+speaker, with a delay between them.  The delay is inversely proportional to 
+the frequency of the sound.  Note that the keyboard can be scanned at the same 
+time a tone is being generated with minimal overhead.
+
+4.9 - Keyboard Interface
+
+     If an INTOFF instruction has not been executed, the CPU will 
+automatically scan the keyboard for key presses every 1ms.  The ON key is 
+scanned regardless of the interrupt state, however, as it is connected 
+directly to a pin on the processor.  This keyboard scanning is independent of 
+program operation and does not seriously affect the performance of the system.  
+If a key is pressed, an interrupt is generated and the ROM keyboard handler 
+scans the keyboard row by row to determine which keys are pressed.  It then 
+sets a timer interrupt for 1/16s in the future for the purposes of determining 
+which keys are held down and which are released, so that it can update the RAM 
+key buffer.  
+
+     The keyboard interrupts can dramatically reduce system performance during 
+intense CPU calculations.  It is wise to use the INTOFF instruction to disable
+the keyboard press and repeat scan during time-critical areas of code.  If the
+code is important enough, the ON interrupt may also be disabled by setting bit
+15 of ST to zero.  This will disable ALL interrupts, so that if the program
+crashes or hangs, the only way to escape is by pressing the RESET button on
+the back of the calculator.  In any case, use caution when disabling all
+interrupts.
+
+     The keyboard is read row-by-row, by outputting the row identifier with 
+OUT and then reading the pressed keys with IN.   Note that the scan row does
+not necessarily represent the keyboard row.  When a key is pressed, it 
+completes a circuit between two data lines.  Each bit set in the OUT register
+corresponds to a keyboard data-line which is set high.  The bits set in the IN
+register represent the output data-lines which are part of complete circuits.
+
+OUT=   IN=#20    #10    #08    #04    #02    #01              
+#100      n/a    (f2)   (f3)   (f4)   (f5)   (f6)
+#080      n/a    PRG    CST    VAR    (up)   NXT 
+#040      n/a    STO    EVAL   (left) (down) (right)
+#020      n/a    COS    TAN    SQRT   POWER  INV 
+#010      ON     ENTER  +/-    EEX    DEL    BKSP
+#008      ALPHA  SIN    7      8      9      /
+#004      R-SHFT MTH    4      5      6      x
+#002      L-SHFT (f1)   1      2      3      -   
+#001      n/a    '      0      .      SPC    +
+     
+     Note that the ON-key is returning in bit 15 of OUT, whether you ask for
+it or not.
+
+     For instance, if OUT=#020 and the SQRT and INV keys are pressed, the 
+value of IN would be (#01 or #04) or #05.  The row masks may also be ORed, but
+this will only tell whether a key in each specific column was pressed.  
+Setting OUT=#1FF will return a non-zero value in the IN register if any keys 
+are currently being pressed.
+
+4.10 - Timers
+    
+     The following hardware registers affect the timers:
+
+Register   Bits   Description
+#0012Eh    All    Timer 1 Control Register
+           0      Extra function
+           1      Interrupt  
+           2      Wake
+           3      Service request
+#0012Fh    All    Timer 2 Control Register
+           0      [TRUN]
+           1      Interrupt   
+           2      Wake 
+           3      Service request  
+#00137h    All    Timer 1 value
+#00138h    All    Timer 2 value
+  ...
+#0013Fh    All    Timer 2 value 
+    
+     TIMER1 is 4-bit clock running at 16Hz used by the interrupt handler to 
+detect keys being held down and released.  TIMER2 is a 32-bit (8-nibble) wide
+clock running at 8192Hz.  The timer value will decrement each cycle, until it
+reaches zero, at which time it will perform a function, depending on how it is
+set up.
+
+4.11 - Miscellaneous
+    
+     The following hardware registers affect various aspects of the 
+calculator:
+
+Register   Bits   Description
+#00104h    All    LSBs of 8-bit CRC (see the CRC-calculation section)
+  ...
+#00105h    All    MSBs of CRC
+#00108h    All    Power Status registers
+           0      Very-Low Battery Interrupt occurred
+           1      LowBat0 occurred
+           2      LowBat1 occurred
+           3      LowBat2 occurred
+#00109h    All    Power Control registers
+           0      RST
+           1      GRST
+           2      Enable Very-Low-Battery Interrupt (VLBI)
+           3      Enable Low-Battery Interrupt (LBI)
+#0010Ah    All    Chip mode (R/O)
+#00118h    All    LSBs of service request
+  ...                       
+#00119h    All    MSBs of service request
+#0011Bh    All    Base nibble offset
+#0011Eh    All    Scratch pad (used by the interrupt handler)
+#0011Fh    All    Base nibble (IRAM@, 7 for S/SX, 8 for G/GX)
+
+
+-=---------------------------------------------------------------------------=-
+                             5.0 - HP48 PCB Diagrams
+-=---------------------------------------------------------------------------=-
+
+     The information in this section is adapted from version 0.03 of Philippe        
+Teuwen's incredible PCB documentation.  Most of the diagrams are drawn from  
+the perspective of the calculator viewed from the back with the batteries at 
+the bottom.
+
+5.1 - Calculator Overview
+
+            -----!!!!----OO-----     Serial port/IR LED/IR receiver
+           |      &             |
+           | XXXX XXXXXXXX XXXX |    LCD driver/Processor/LCD driver
+           | XXXX XYORKEXX XXXX |
+           | XXXX XXXXXXXX XXXX |    & (4): Jumpers
+           |      XXXXXXXX &    |
+           |     &        RX  H |    Crystal (32kHz time X'tal)
+           |         &    IR  H |    IR RX circuits
+  RS232    |R                   |
+   TX      |S ################  |    Expansion connectors    ___________
+ circuits  |T ################  |    (port 2 above)      ___| port 2    |
+           |X ################  |                       /   |___________|__
+           |  !!!!!!!!!!!!!!!!  |    Small wires       /  __| port 1       |
+  Power    |P                   |                   __/__/__|______________|__
+ Circuits  |O  74 XXXX XXXX  CC |    RAM/ROM/Condensator 1mF
+  74HC174  |W  HC RAMX ROMX  HC |    74HC00                       
+           |R     XXXX XXXX  00 |                  
+           |--------------------|
+           | +                  |
+           |                    |    Battery case
+           |                  - |
+            -------------------
+
+5.2 - Pinout Reference
+
+A0-A16:    Address lines
+A17-A21:   Extended lines for port 2 (A18 is inverted, actually NA18)
+AR17-AR18: Extended lines for ROM
+BEN:       Bank-switching Enable
+buzz:      Buzzer (the second line of the buzzer is grounded)
+CDT1-CDT2: Card Detect Type for port 1-2 (H:RAM L:ROM X:No Card)
+CE1:       Card Enable 1 (In GX, is used to enable A17-A21 for port 2)
+CE2:       Card Enable 2 (In GX, is used as CE for port 1)
+CE2.2:     Card Enable port 2 (Not from CPU; CE2.2=BEN*N(AR18) )
+D0-D7:     Data lines
+GND:       Ground
+LD(0):     Display: The first bit of display information
+LD(1):     Display: The next bit
+LP:        Display horiz sync (Fall. edge: a new line is about to be started)
+NC:        Not Connected
+NCE0:      Card RAM Enable
+NCER:      ?Card ROM Enable
+NOE:       Original Output Enable (Not used in G/GX)
+NOE2:      Output Enable for all RAMs and ROM (Not from CPU; NOE2=N(NWE) )
+NWE:       Write Enable for all RAMs
+ON-key:    ON-key is wired directly to CPU
+RX:        RS232 Reception
+RXir:      IR Reception
+SPD:       Processor Speed (H:4MHz L:2.4MHz)
+sync1:     ?Display synchro line (between both drivers)
+sync2:     ?Display synchro line (between both drivers)
+sync3:     ?Display synchro line (between both drivers and the CPU)
+sync4:     ?Display synchro line (between both drivers and the CPU)
+sync5:     ?Display synchro line (between both drivers and the CPU)
+TX:        RS232 transmission
+TXir:      IR transmission
+V0-V299:   Display data lines for the LCD
+Vbb1-Vbb2: Card battery check (L:warning low bat port 1-2)
+Vcc(on):   =5V  if HP is turned on else =0V
+Vcc(10):   =10V if HP is turned on else =4.5V(bat)
+Vcc:       =5V  if HP is turned on else =4.5V(bat)
++4.5V:     Directly wired from battery + pin
+x3:        ? (links 84 and 124 of the CPU and power circuits)
+x4:        ? (links 128 of the CPU and power circuits)
+XSCL:      Display clock (Falling edge: 2 bits of display data may be read)
+Xtal1:     To X'tal 32kHz
+Xtal2:     To X'tal 32kHz
+(GND):     \                              Ground
+(RX):       | Pinouts of the RS232 I/O    Reception
+(SH):       |                             Shield
+(TX):      /                              Transmission
+
+5.3 - 74HC174: Hex D-type flip-flop with clear
+
+           -----------
+     CE1 -| CLK   GND |- GND         NCLR CLK D Q
+     BEN -| 4Q     3Q |- A17           L   X  X L
+      A5 -| 4D     3D |- A0            H   ^  H H
+     A21 -| 5Q     2Q |- A18           H   ^  L L
+      A4 -| 5D     2D |- A1            H   L  X Q0
+      A3 -| 6D     1D |- A2
+     A20 -| 6Q     1Q |- A19       /-- 47k ---- Vcc(on)
+  Vcc(on)-| Vcc  NCLR |- Vcc 3V --< 
+           ----/^\---- 1           \-- 100k --- GND
+
+
+5.4 - 74HC00: Quad 2-input NAND gate   
+
+           ----\_/---- 14
+  Vcc(on)-| 1A    Vcc |- Vcc(on)    
+    AR18 -| 1B     4B |- Vcc(on)     Logic:   Y=N(A*B)
+4(HC00) /-| 1Y     4A |- NWE                 
+3(HC00) \-| 2A     4Y |- NOE2        Results: CE2.2=BEN*N(AR18)
+     BEN -| 2B     3B |- 6(HC00)              NOE2=N(NWE)
+10(HC00) -| 2Y     3A |- Vcc(on)              
+     GND -| GND    3Y |- CE2.2
+           ----------- 
+
+5.5 - RAM/ROM Memory
+        
+        RAM 32k or 128k                      ROM 512k
+
+          -----------                       -----------
+     D3 -| D3    GND |- GND            D3 -|           |- GND 
+     D4 -| D4     D2 |- D2             D4 -|           |- D2 
+     D5 -| D5     D1 |- D1             D5 -|           |- D1 
+     D6 -| D6     D0 |- D0             D6 -|           |- D0
+     D7 -| D7     A0 |- A0             D7 -|           |- A0 
+   NCE0 -| NCE    A1 |- A1           NCER -|           |- A1
+    A10 -| A10    A2 |- A2            A10 -|     ?     |- A2
+    GND -| NOE    A3 |- A3            GND -|           |- A3
+    A11 -| A11    A4 |- A4            A11 -|           |- A4
+     A9 -| A9     A5 |- A5             A9 -|           |- A5
+     A8 -| A8     A6 |- A6             A8 -|           |- A6
+    A13 -| A13    A7 |- A7            A13 -|           |- A7
+    NWE -| NWE   A12 |- A12           A14 -|           |- A12
+    Vcc -|CE/Vcc A14 |- A14          AR17 -|           |- A15
+       28 ....:^:.... 1   if 32k     AR18 -|           |- A16
+                                   Vcc(on)-|           |- GND
+    A15 -| A15   A16 |- A16              32 ----/^\---- 1
+    Vcc -| Vcc    NC |- GND
+       32 ----/^\---- 1   if 128k        Address: 512k=2^19 A0-AR18
+
+
+5.6 - Ports    
+
+          Port 1        Port 2
+        -----------------------
+        1 Vcc(on)       Vcc(on)
+        2 Vbb1          Vbb2
+     3-19 A0-A16        A0-A16
+       20 NWE           NWE
+       21 CE2           CE2.2
+       22 NOE2          NOE2
+    23-30 D0-D7         D0-D7
+       31 AR17          A17
+       32 AR18          A18
+       33 XSCL          A19
+       34 LP            A20
+       35 LD(0)         A21
+       36 LD(1)         BEN
+       37 CDT1          CDT2                   
+       38 NC            NC       In Seiko-Epson Cards: Card Present       
+       39 NC            NC                             Card Type
+       40 GND           GND
+
+
+5.7 - LCD Drivers
+
+Refs: SED1181Fla Japan
+
+          Left(reversed)  Right
+      -----------------------------
+     1-28 V254-V281       V222-V249
+       29 sync2           NC
+       30 NC              NC
+       31 NC              NC
+       32 LD(0)           sync1
+       33 LD(1)           sync2
+       34 XSCL            XSCL      
+       35 LP              LP
+       36 sync3           sync3
+       37 V87             V52
+       38 V86             V51
+       39 V85             V50
+       40 V83             V49
+    41-50 V82-V73         V47-V38
+       51 V71             V37
+       52 V70             V36
+    53-62 V69-V60         V34-V25
+       63 V58             V24
+    64-68 V57-V53         V22-V18
+       69 sync4           sync4
+       70\sync5           sync5
+       71/sync5           sync5
+       72 Vcc             Vcc
+       73 Vcc(10)         Vcc(10)        
+       74 sync1           NC
+       75 NC              NC
+       76 NC              NC
+    77-80 V250-253        V218-221
+
+
+5.8 - Keyboard 
+
+Refs: MXS 00048-80038
+! on the other side of the PCB, so X'tal is on the left
+
+        1 Vcc           7 A3           13 A1
+        2 ON-key        8 A11          14 A15
+        3 A5            9 A12          15 A16
+        4 A4           10 A2           16 A0
+        5 A10          11 A13          17 AR17
+        6 A9           12 A14
+
+ Pressing a key makes a connection between 2 lines.
+
+ Correspondence Table:
+
+ -----------------------------------------------
+| A     | B     | C     | D     | E     | F     |     ML correspondences:
+|-------|-------|-------|-------|-------|-------|
+| O A10 | O AR17| O AR17| O AR17| O AR17| O AR17|     OUT: #001 -> A9
+| I A4  | I A4  | I A3  | I A2  | I A1  | I A0  |          #002 -> A10
+|-------|-------|-------|-------|-------|-------|          #004 -> A11
+| MTH   | PRG   | CST   | VAR   | up    | NXT   |          #008 -> A12
+|-------|-------|-------|-------|-------|-------|          #010 -> A13
+| O A11 | O A16 | O A16 | O A16 | O A16 | O A16 |          #020 -> A14
+| I A4  | I A4  | I A3  | I A2  | I A1  | I A0  |          #040 -> A15
+|-------|-------|-------|-------|-------|-------|          #080 -> A16
+| '     | STO   | EVAL  | left  | down  | right |          #100 -> AR17
+|-------|-------|-------|-------|-------|-------|     IN: #0001 -> A0
+| O A9  | O A15 | O A15 | O A15 | O A15 | O A15 |         #0002 -> A1
+| I A4  | A A4  | I A3  | I A2  | I A1  | I A0  |         #0004 -> A2
+|-------|-------|-------|-------|-------|-------|         #0008 -> A3
+| SIN   | COS   | TAN   | sqrt  | Y^X   | 1/X   |         #0010 -> A4
+|-------|-------|-------|-------|-------|-------|         #0020 -> A5
+| O A12 | O A14 | O A14 | O A14 | O A14 | O A14 |         #8000 -> ON-key
+| I A4  | I A4  | I A3  | I A2  | I A1  | I A0  |
+|---------------|-------|-------|-------|-------|
+| ENTER         | +/-   | EEX   | DEL   | back  |
+|---------------|-------|-------|-------|-------|
+| O A13         | O A13 | O A13 | O A13 | O A13 |
+| I A4          | I A3  | I A2  | I A1  | I A0  |
+|---------------|-------|-------|-------|-------|
+| alpha         | 7     | 8     | 9     | /     |
+|---------------|-------|-------|-------|-------|
+| O A12         | O A12 | O A12 | O A12 | O A12 |
+| I A5          | I A3  | I A2  | I A1  | I A0  |
+|---------------|-------|-------|-------|-------|
+| shift left    | 4     | 5     | 6     | *     |
+|---------------|-------|-------|-------|-------|
+| O A11         | O A11 | O A11 | O A11 | O A11 |
+| I A5          | I A3  | I A2  | I A1  | I A0  |
+|---------------|-------|-------|-------|-------|
+| shift right   | 1     | 2     | 3     | -     |
+|---------------|-------|-------|-------|-------|
+| O A10         | O A10 | O A10 | O A10 | O A10 |
+| I A5          | I A3  | I A2  | I A1  | I A0  |
+|---------------|-------|-------|-------|-------|
+| ON            | 0     | .     | SPC   | +     |
+|---------------|-------|-------|-------|-------|
+| O +Vcc        | O A9  | O A9  | O A9  | O A9  |
+| I ON-key      | I A3  | I A2  | I A1  | I A0  |
+ -----------------------------------------------
+
+5.9 - LCD Display 
+
+Refs: LD-F8845A-23 363D Epson Japan
+! on the other side of the PCB, so X'tal is on the left
+
+        up: 1-105 : V1-V105
+        down: 201 : V201
+              202 : NC
+          203-297 : V203-V297
+              298 : NC
+              299 : V299
+
+
+5.10 - Yorke Chip
+
+Refs: 00048-80063 D3004GD NEC Japan
+
+        1 NC                    90 NWE                137 LD(0)
+        2 NC                    91 RESET (if low)     138 LD(1)
+        3 TXir               92-99 D0-D7              139 V88
+     4-18 V217-V203            100 AR17               140 V282
+       19 V201             101-117 A16-A0             141 V89
+    20-35 V16-V1               118 Xtal2              142 NC
+       36 NC                   119 Xtal1              143 sync5
+       37 SPD                  120 NC                 144 sync4
+       38 NC                   121 NOE                145 +4.5V
+       39 V84                  122 TXir               146 RAM bat2
+       40 V72                  123 GND                147 RAM bat1
+    41-56 V90-V105             124 x3                 148 Xtal1
+       57 V299                 125 Vcc                149 Xtal2
+    58-72 V297-V283            126 Vcc(on)            150 CDT1
+    73-80 NC                   127 NCER               151 CDT2
+       81 RX                   128 x4                 152 V17
+       82 TX                   129 -1.5k-buzz         153 V23
+       83 XSCL                 130 Vcc(10)            154 V35
+       84 x3                   131 TX                 155 V48
+       85 AR18                 132 GND                156 V59
+       86 ON-Key               133 RX                 157 V72
+       87 CE2                  134 XSCL               158 V84
+       88 CE1                  135 LP                 159 GND
+       89 NCE0                 136 sync3              160 RXir
+
+5.11 - Printed Circuit Board
+
+Refs: 00048-80050
+ 
+ - Some tracks are interlaced to allow a bridge to be soldered on them.
+(cf the 4 "&" on the PCB schematic)
+ - These jumpers exist to allow an SX to be easily constructed with this PCB.
+
+ Left one   :   CE1<->CE2.2
+ Right one  :   NOE<->NOE2
+ Middle one :   SPD<->Vcc   CPU at 4MHz  (soldered originally) 
+ Upper one  :   SPD<->GND   CPU at 2.4MHz
+
+ CAUTION: Never solder the two last ones at the same time!
+
+
+5.12 - IR Receiver
+
+Note: schematic adapted from HP I/O Technical Interfacing Guide
+
+                            +5V
+                _________________________________________________
+               |                           |                     |
+        10K    \                      18K  \               1M    \
+        1/8 W  / R6                   1/8W /  R8           1/8W  /  R7
+               \                           \                     \
+RXir ----------|                           |                     |
+               |                            \                    |
+               |                             \|                  |
+                \                        Q4   |------------------|
+                 \|           R4             /|                  |
+             Q3   |----------/\/\/----------V    <---,           |
+                 /|     |   220K            |       '-----       |
+                V       |   1/8 W           |                    |
+  +5V _  ____   |       |                   |                    |
+       ||       | 560K  /  R5        220K   /                    |
+       ||       | 1/8W  \            1/8W   \  R3                /
+  GND  --       |       /                   /                  |/
+                |       |                   |------------------|  Q2
+                |       |                   |                  |\
+                |       |           .022uF ---  C1               V
+                |       |                  ___                   |
+                |       |                   |                    |
+                 ---------------------------|--------------------
+                                         ---|---
+                                          --|--
+                                            -
+              Q4: Receiver              Q1,Q2,Q3:  2N3904      
+       Refs: EG&G VATEC VTT 9112        R3-R8: 5%
+                 ___
+                | i |
+                |i|i|
+                 |||
+                / | \
+               E  B  C
+
+
+5.13 - IR Transmitter for the G/GX
+
+                         ,-->                __
+                      --'                   |  |
+            +4.5V --A->|-K--- TXir          |__|
+                                             ||
+                                             | \
+                                            /   K
+                                           A
+
+5.14 - IR Transmitter for the S/SX
+
+Note: schematic adapted from HP I/O Technical Interfacing Guide
+
+                          +5V
+                          ---
+      Transmit Circuit     |
+                39Ohms     /
+                1/8W       \  R1        
+     +5V   __              /            
+           ||              |             CR1: NEC SE303A
+           ||            -----  --,           or
+   GND    -  -----  CR1   \ /    '-->         HP HEMP-3301 (narrower beam)
+                          ---
+                           |             R1-R2: 5%
+                           /
+OUT            R2        |/
+--------------\/\/\------| Q1
+---->         500 Ohms   |\
+              1/8 W        V
+                         -----
+                          ---
+                           -
+
+
+5.15 - RS232 Circuits
+
+      Pinout:    I__|__|__|__|__I
+                    |  |  |  |
+                   /   |  |   \
+                (SH) (TX)(RX) (GND)
+
+       1nF
+(SH)---| |--- GND
+      
+  
+(TX)--------------------------------
+          |                         |
+         --- 1nF                   / \
+         ---                      /   \
+          |          Vcc         |     |         Vcc
+        --|--         |         \ /   ---         |
+         -|-          |         ---   / \         |   2 diodes
+          -           \          |     |          \
+                  47k /          |     |          / 47k
+                      \         /       \         \
+                      |       |/         \|       |
+        NPN           |-------|           |-------|          PNP
+    Transistors       |       |\         /|       |      Transistors
+      ref:1AM         |         V       A         |        ref:2A
+                       \         |     |         / 
+                        \|       |     |       |/
+                         |-------|-----|-------|
+                        /|          |          |\
+                       V            \            A
+                      |             / 150ohms     |
+                      |             \             |
+                      |             |             |
+                      |-------------|-------------|--------- TX
+                                    |
+                                   ---
+                                   / \    ref:H2M
+                                    |
+                                  --|--
+                                   -|-
+                                    -
+        5.6k
+(RX)----/\/\/--------------- RX
+                |
+        -||-   ---  Capacitance diode (Varicap) ref:C10
+               / \
+                |   75ohms
+(GND)---------------/\/\/--- Vcc
+
+        
+5.16 - Power Circuits
+
+               +4.5V -----SSSSS-------------------------,
+                      :   Self?   |      |               \|         PNP
+                      :   (R=0)   |      |                |---   Transistor
+                    ,---'        \ /    \ /              /|   |    ref:YB51
+            Zener    / \         ---    ---       x4 -->'     |     or YB58
+           ref:Z3N    :           |      |                    |  
+         omitted on   :           |      |-- Vcc(10)          | 
+        recent PCB's  :          x3      |                    |
+                      :                 XXX  Capa?            |
+                      :                 ???  ref:336          |
+                      :                 ???      16k          |
+                      :                  |       429          |
+                       ' ' ' ' ' ' ' ' ' |--------------------
+                                       --|--
+                                        -|-
+                                         -
+
+5.17 - Backup Power
+
+                          +| |               | |
+                Vcc -------| |---------------| |-------- Vcc(on)
+                           | |       |       | |
+                           1mF       |      0.1uF
+                                   --|--
+                                    -|-
+                                     -
+5.18 - Notes
+
+ - If a current larger than ~120mA flows through the CPU, all of the 
+ indicators will be set independently of the HP's state
+
+ - See the "Contact" section for information on how to contact the original
+ author of this document for corrections or clarifications
+
+
+-=---------------------------------------------------------------------------=-
+                                6.0 - How Do I...
+-=---------------------------------------------------------------------------=-
+
+     Before experimenting with any of the code or ideas presented in this 
+section, be sure to backup your data.  Typos can lead to the dreaded "Memory
+Clear" message.  
+
+6.1 - ...Use Greyscale Graphics? 
+
+     The HP48 is capable of displaying pseudo-four-color graphics without 
+seriously affecting performance.  This is accomplished by quickly flipping 
+between two different display GROBs of the same size.  Note that the second 
+(bottom half) of the GROB is given a higher weighting (displayed twice) to 
+allow for the four scale operation.
+
+     This code is handy for viewing GROBs from the stack, but is not the best
+solution for all cases.  It assumes that the stack-based GROB could start at
+either an even or an odd address, meaning that we'd have to shift it to make 
+sure it starts on an even one.  In a greyscale game, however, it is better
+to just use AGROB, since this is guaranteed to be located properly.
+
+* Adopted from unknown source, commented 
+* Views a 131x128 GROB in the first stack level as a 131x64 greyscale grob
+CODE
+* System Initialization
+  GOSBVL =SAVPTR                        * Save RPL pointers
+  GOSBVL =DisableIntr                   * Disable interrupts
+ 
+* Display Initialization
+  D0=(5) #00128                         * Load D0 with display row count        
+  LC(2) #3F                             * Load C with count of 63
+  DAT0=C B                              * Kill the menu
+ 
+* Program Initialization
+  ST=0 0                                * Clear program flag 0 
+  A=DAT1 A                              * Load A(A) with the address of the 
+  A=A+CON A,10                          *  grob in level 1 and skip the
+  A=A+CON A,10                          *  prolog
+  ?ABIT=0 0                             * Grob data on even address?
+  GOYES Align                           * Yes, jump
+  ST=1 0                                * No, set program flag 0
+  LC(5) #01100                          * Load C with copy count (#01100)
+  A=A+C A                               * Add this to A(A)...
+  D1=A                                  * ...and put it in D1
+  A=A-1 A                               * Subtract one from this...
+  D0=A                                  * ...and put it in D0
+  GOSBVL =MOVEUP                        * Copy up, D0 -> D1
+  AD1EX                                 * Swap A and D1
+  A=A+1 A                               * Add 1 to A
+ 
+Align
+  R0=A A                                * Ensure grobs can be restored
+  R1=A A                                * Load R1 with first grob
+  LC(5) #00880                          * Load C(A) with offset
+  A=A+C A                               * Add grob offset to A(A) 
+  R2=A A                                * Load R2 and R3 with second grob
+  R3=A A
+  D1=(5) #00128                         * Set D1 to display row count
+ 
+* Main Program Loop
+MainLoop
+  GOSUB RotateGrob                      * Run grob-swapping routine
+  GOSUB CheckKey                        * Check for a keypress
+  ?C=0 A                                * No keys pressed?
+  GOYES MainLoop                        * Yes, loop again
+  
+  ?ST=0 0                               * Check if not moved before
+  GOYES NoMove                          * Yes, no need to move      
+  A=R0 A                                * Restore A(A) from R0(A)
+  D0=A                                  * Put this into D0
+  A=A-1 A                               * Subtract 1 from A(A)
+  D1=A                                  * Put this into D1
+  LC(5) #01100                          * Load copy count into C(A)
+  GOSBVL =MOVEDOWN                      * Copy down, D0 -> D1
+ 
+NoMove
+  GOSBVL =D0->Row1                      * Restore old screen address to A(A) 
+  D0=(5) #00120                         * Load D0 with display address base
+  DAT0=A A                              * Restore original display address
+  D0=(5) #00128                         * Load D0 with display row count
+  LC(2) #37                             * Load C with new count
+  DAT0=C B                              * Restore the bottom menu  
+  GOSBVL =AllowIntr                     * Restore interrupts
+  GOSBVL =FlushAttn                     * Flush ON-key presses
+  GOSBVL =Flush                         * Flush keypresses
+  GOVLNG =GETPTRLOOP                    * Return to RPL
+ 
+* Rotates the current grob address through the three loaded before (R1..3)
+RotateGrob
+  A=R3 A                                * Load A(A) with next grob       
+  AR2EX A                               * Rotate current grob through the
+  AR1EX A                               *  other three loaded before
+  R3=A A                                * A(A) points to current grob
+  D0=(5) #00120                         * Load D0 with display address base
+  DAT0=A A                              * Show current grob
+ 
+  A=DAT1 B                              * Read byte from display scan row 
+  LC(2) #C0                             * Load C(1-2) with mask #1100 0000h
+  A=A&C B                               * Save DA19 and M32 with mask
+  C=A B                                 * Load C with this value
+  LC(1) #A                              * Load C(1) with #Ah (LCD row 10)
+ 
+* Vertical blanking loop: ensures that routine always exits with retrace on 
+* LCD row 10
+VBlankLoop1
+  A=DAT1 B                              * Read a byte at [D1]
+  ?A>C B                                * Is the retrace below row 10?
+  GOYES VBlankLoop1                     * Yes, wait until it returns to start
+   
+VBlankLoop2
+  A=DAT1 B                              * Read a byte at [D1]
+  ?A<=C B                               * Is the retrace above row 10?
+  GOYES VBlankLoop2                     * Yes, wait until it passes row 10 
+  RTN                                   * Return to main loop
+ 
+* Check for keypress routine: required, as interrupts are disabled
+CheckKey
+  LC(5) #001FF                          * Load C with keymask
+  GOVLNG #01EEC                         * Put key matrix into C(A), return
+ENDCODE
+
+6.2 - ...Output a Solid Tone?
+
+     This code will output a solid tone using the supported "makebeep" entry
+in ROM:
+
+CODE
+  GOSBVL    =SAVPTR         * Save RPL pointers
+  LC(5)     1000            *                       
+  D=C       A               * D(A): Frequency (Hz), 1000 Hz
+  LC(5)     500             * C(A): Duration (ms), 500 ms
+  GOSBVL    =makebeep       * Call ROM sound routine (supported entry)
+  GOVLNG    =GETPTRLOOP     * Jump back into RPL
+ENDCODE
+
+6.3 - ...Read the Keyboard Directly?
+
+     The C=IN opcode is only able to operate from an even nibble address.  
+The =CINRTN entry point allows us to call the opcode from a guaranteed even
+nibble.  This sample code loops until ON is pressed and "processes" the 
+left-arrow key.
+
+CODE
+* Start of our key loop
+GetKey
+  C=0 W                     * Just need ON key
+  OUT=C
+  GOSBVL =CINRTN            * C=IN (calls from even address)
+* NOTE: the ON-key is returned in bit 15 of C at this point, whether we want
+* it or not.  Make sure you don't make any assumptions about which key
+* is pressed by testing with "C#0?"
+  ?C=0 A                                                                                                                          * If zero, not pressed
+  GOYES CheckLeft
+
+* ON pressed, quit program
+Quit
+  INTON
+  GOSBVL =AllowIntr                     * Restore interrupts
+  GOSBVL =FlushAttn                     * Flush ON-key presses
+  GOSBVL =Flush                         * Flush keypresses
+  GOVLNG =GETPTRLOOP                    * Return to RPL
+
+* Whatever we want to do now (maybe check other keys?)
+CheckLeft
+  LC(3) #040                            * Mask row with left/right
+  OUT=C
+  GOSBVL =CINRTN                        * C=IN (calls from even address)
+  LA(2) #01                             * Left-arrow column mask
+  ?C#A B                                * If not equal, key is not pressed
+  GOYES CheckMoreKeys                   *   or pressed with other key 
+
+* Process left arrow
+
+* etc.
+CheckMoreKeys
+
+GOLONG GetKey
+ENDCODE
+
+     Note that you can test for multiple keys on a single row using a single 
+in/out pair if you test the final value using the bitwise and (&) instead of
+the bitwise non-equivalence.
+
+6.4 - ...Speed Up Time-Critical Calculations?
+
+     While the Saturn CPU is processing your program, it is not always 
+devoting all of its attention.  It services interrupts, refreshes the LCD 
+display, scans the keyboard and coordinates all of the external activities of
+the calculator!  To ensure you have the complete attention of the CPU for any
+calculation, follow these steps:
+
+1.  Disable the interrupt handler
+2.  Disable the CPU keyboard scan
+3.  Turn off the LCD
+
+     And to re-enable them, just:
+
+1.  Turn on the LCD
+2.  Enable the CPU keyboard scan
+3.  Re-enable the interrupt handler
+
+     In an RPL program, it might look like this:
+
+CleanDispOff   EQU  #01D44    * Unsupported entry, DispOff is supported if 
+                              * you'd rather use it
+
+CODE
+  GOSBVL    =SAVPTR           * Save RPL pointers
+  GOSBVL    =DisableIntr      * Disables the ROM interrupt routine and the
+                              * automatic keyboard scan
+  GOSBVL    =CleanDispOff     * Clear display enable flag -> Display Off
+  INTOFF                      * Disable the automatic CPU keyboard scan
+  * Your fast code goes here (be careful!)
+  INTON
+  GOSBVL    =DispOn           * Turn display back on
+  GOSBVL    =AllowIntr        * Re-enables the ROM interrupt routine and the
+                              * keyboard scan, services any pending interrupts
+  GOVLNG    =GETPTRLOOP       * Jump back into RPL
+ENDCODE
+
+     If you want to speed up some SysRPL code instead, put this in place of 
+your ML code:
+
+CODE
+  [pre-code routine]          * Don't forget SAVPTR/GETPTRLOOP 
+ENDCODE
+ERRSET
+  ::
+    * Your RPL code
+  ;
+ERRTRAP                       * In case an error occurs, reenable everything
+  ::
+    CODE
+      [post-code routine]     * Don't forget SAVPTR/GETPTRLOOP 
+    ENDCODE
+    ERRJMP                     
+  ;
+CODE
+  [post-code routine]         * Don't forget SAVPTR/GETPTRLOOP 
+ENDCODE
+    
+     Be careful about what you put in this routine!  If something goes wrong
+with the internal routine, the calculator will be locked and the only way to
+reset it will be with the RESET button under one of the rubber feet.  Refer to
+the interrupt-handler section for more information.
+
+6.5 - ...Send text through the serial port?
+
+6.6 - ...Send text through the IR port?
+
+6.7 - ...Control the IR transmitter/receiver directly?
+
+6.8 - ...Create My Own Interrupt Handler?
+
+     Creating a customized interrupt handler on the HP48 is a fairly large
+kludge.  The problems created with this process ensure that the only valid 
+application is a game requiring full attention of the CPU.  To set up a custom
+interrupt handler with one of these methods, the program must be fairly 
+independent of ROM functions and be written in 100% ML.  The methods are:
+
+1) Program takeover of lower memory
+
+Advantages: 
+ - Only ROM functions within program size (rounded up to multiple of #00100)
+   are overwritten
+ - More compact final code object
+
+Disadvantages:
+ - Requires enough RAM to make a copy of what the entire program overwrites in 
+   lower RAM (minimum free RAM required = program size)
+
+Method:
+  1)  Disable interrupts.
+  2)  Create a temporary object and copy amount of lower RAM equal to size of
+      program and interrupt handler.
+  3)  Copy interrupt handler to physical address #0000F of RAM and program to 
+      somewhere around #00100.
+  4)  Re-configure RAM to address #00000, re-configure hardware registers to 
+      higher address if required.
+  5)  Re-enable interrupts, execute program at new address.
+  6)  Disable interrupts.
+  7)  Re-copy lower RAM from temporary object.
+  8)  Re-configure RAM at default address.
+  9)  Re-enable interrupts, quit.
+
+2) Complete RAM takeover of lower memory
+  
+Advantages:
+ - Requires only enough RAM to mirror what interrupt handler overwrites
+
+Disadvantages
+ - Most of lower ROM is overwritten 
+
+Method:
+  1)  Disable interrupts.
+  2)  Create a temporary object and copy amount of lower RAM equal to size of
+      a GOTO instruction.
+  3)  Put a GOTO instruction at physical address #0000F of RAM and have it 
+      jump to the physical address of your interrupt handler.
+  4)  Re-configure RAM to address #00000, re-configure hardware registers to 
+      higher address if required.
+  5)  Re-enable interrupts, execute program.
+  6)  Disable interrupts.
+  7)  Re-copy lower RAM from temporary object.
+  8)  Re-configure RAM at default address.
+  9)  Re-enable interrupts, quit.
+
+3) RAM-Card Backup Object Method
+
+Advantages:
+ - Only ROM functions within program size (rounded up to multiple of #00100)
+   are overwritten
+ - No RAM-saving required
+ - Extremely easy to implement
+
+Disadvantages:
+ - Requires dedicated RAM-card
+ - SX/GX only
+ - Cannot access upper ROM if used in card port 2 (without RAM shadowing)
+
+Method:
+  1)  Create a RAM/ROM card with the new handler starting at address #0000F.
+  2)  Disable interrupts
+  3)  Configure port 2 to start at address 0
+  4)  Re-enable interrupts
+
+-=---------------------------------------------------------------------------=-
+                                 7.0 - Glossary
+-=---------------------------------------------------------------------------=-
+
+     The following terms and acronyms are used throughout the document and 
+defined as they are mostly likely to be used in this context.  Most of them
+are used commonly or have definitions that are difficult to find.
+
+Bus Command: 
+     ?
+
+CRER: 
+     Clear Receive ERror.
+
+GROB: 
+     GRaphics OBject.  An internal representation of a two-color graphic.
+
+Hz: 
+     Hertz.  A measure of frequency, in cycles per second.
+
+IR: 
+     Infrared.  Used to transmit information invisible to the human eye. 
+
+LCD: 
+     Liquid Crystal Display.  A display that displays information by using a 
+liquid crystal that polarizes light when a current is applied to it.  Commonly
+used in portable electronic devices, such as calculators.
+
+LED: 
+     Light Emitting Diode.  An IR LED is used to generate IR light.
+
+LSB: 
+     Least Significant Bit.  The bit that has the smallest decimal 
+representation.  The rightmost bit.
+
+ML: 
+     Machine Language.  Refers to the basic assembly language of the Saturn 
+processor.
+
+MSB: 
+     Most Significant Bit.  The bit that has the largest decimal 
+representation.  The leftmost bit.
+
+Nibble: 
+     Four-bit data, half a byte.  As the Saturn chip has a four-bit data path, 
+the nibble is used extensively internally.
+
+RBR: 
+     Receive Buffer Register.  A hardware register that holds the last 
+received character.  
+
+RCR: 
+     Receive Control Register.
+
+RECV: 
+     Serial receive function.  Refers to the transmission of a byte by the 
+UART via either IR or wire.
+
+RPL: 
+     "Reverse Polish Lisp" or "ROM-based Procedural Language".  A programming 
+format used uniquely in HP calculators, utilizing mainly a stack for 
+operations and calculations.  Used as a suffix, like SysRPL or UserRPL.
+
+Scratch Register: 
+     A 64-bit register used to hold working register values.
+
+SREQ: 
+     Service request.  Used on the older HP calculators to control card 
+readers and other devices.
+
+SysRPL: 
+     A medium-level HP programming language.
+
+TBR: 
+     Transmit Buffer Register.  A hardware register that holds the next 
+character to be sent by the UART.
+
+TCR: 
+     Transmit Control Register.
+
+UART: 
+     Universal Asynchronous Receiver/Transmitter.  A chip used to control 
+serial communication.
+
+UserRPL: 
+     A high-level HP programming language.
+
+Wire transmission: 
+     Information transmitted bidirectionally over a serial-link cable.
+
+Working Register: 
+     A 64-bit register used extensively in calculations.
+
+XMIT: 
+     Serial transmit function.  Refers to the transmission of a byte by the 
+UART via either IR or wire.
+
+
+-=---------------------------------------------------------------------------=-
+                          8.0 - Contributing/Contacting
+-=---------------------------------------------------------------------------=-
+
+8.1 - Contacting the Author
+
+     Please feel free to contact the author if you:
+
+ - would like to contribute something to this document;
+ - have found an error or omission; or
+ - would like to make a suggestion.
+
+     You can contact the author in one of the following ways:
+
+Email: mmastrac@acs.ucalgary.ca
+Newsgroup: comp.sys.hp48
+
+           The latest version of this document can always be found at
+             http://www.acs.ucalgary.ca/~mmastrac/files/saturn.html
+
+8.2 - Contacting Contributors
+
+     The following contributors have offered their email addresses for 
+contact:
+
+Name             Address                        Notes
+Philippe Teuwen  s952365@student.ulg.ac.be      HP48 PCB Drawings
+
+
+This manual compiled using MC v1.05 by Matthew Mastracci
