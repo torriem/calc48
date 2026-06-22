@@ -26,7 +26,7 @@ HP48_DEBUG = 2
 
 
 def _find_lib():
-    here = os.path.dirname(os.path.abspath(__file__))
+    here = os.path.dirname(os.path.realpath(__file__))   # follow any symlink
     candidates = [
         os.environ.get("HP48_LIB"),
         os.path.join(here, "..", "build", "libcalc48.so"),

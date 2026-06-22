@@ -66,8 +66,10 @@ import sys
 from collections import namedtuple
 
 # The Python binding (hp48.py) and the generated blank-state module live with
-# the library; depend only on libcalc48, never on examples/.
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+# the library; depend only on libcalc48, never on examples/.  realpath() follows
+# a symlink (e.g. ~/bin/calc48) back to the real script so the relative path to
+# libcalc48/ still resolves.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                 "..", "libcalc48"))
 from hp48 import Hp48          # noqa: E402
 # _blank_state (the embedded blank GX RAM/CPU image) is imported lazily in
