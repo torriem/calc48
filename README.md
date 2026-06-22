@@ -1,4 +1,4 @@
-# x48 / libcalc48
+# calc48 / libcalc48
 
 A refactor of **x48** — the classic HP 48 SX/GX calculator emulator — that
 splits the emulator into a self-contained, embeddable C library and keeps the
@@ -17,7 +17,7 @@ CLI, an Android/Qt build, or a headless test harness.
 |---|---|
 | `libcalc48/` | the emulator core (C library) + its Python binding `hp48.py` — see `libcalc48/README.md` |
 | `calc48/` | `calc48.py`, a command-line / REPL RPL calculator — see `calc48/README.md` |
-| `sdl/` | the SDL 1.2 front end (the `x48` app), one client of the library |
+| `sdl/` | the SDL 1.2 front end (the original x48-sdl `x48` app), one client of the library |
 | `examples/` | small programs showing how to drive the library (below) |
 | `tools/` | developer utilities (ROM/state/font helpers; some legacy x48 tools) |
 | `docs/` | reference docs (`keymap.md`, `stack_io_plan.md`, …) |
