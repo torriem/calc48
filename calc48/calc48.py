@@ -19,7 +19,8 @@ file to run.
   * Terminal, no file argument: an interactive REPL with a "calc48>" prompt and
     (if the readline module is available) line editing, history, and tab
     completion.  Lines are RPL; a line starting with '.' is a meta-command --
-    `.help`, `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.key KEY...`
+    `.help`, `.stack`, `.clear`, `.lcd [ascii]` (show the screen), `.shot [FILE]`
+    (save the screen as a pixel-exact PBM), `.key KEY...`
     (tap keys by name or matrix code), `.keys` (list key names), `.chars` (list
     special-character spellings), `.store FILE` / `.load FILE` (save/load a stack
     object in HP binary format), `.save [DIR]`, `.reset` / `.reset_all` (reboot),
@@ -683,13 +684,14 @@ class Rpl:
         self.close()
 
 
-_META_CMDS = ["stack", "clear", "lcd", "key", "keys", "chars", "store", "load",
-              "save", "reset", "reset_all", "help", "quit"]
+_META_CMDS = ["stack", "clear", "lcd", "shot", "key", "keys", "chars", "store",
+              "load", "save", "reset", "reset_all", "help", "quit"]
 
 _META_HELP = """calc48 meta-commands (a leading '.'; everything else is RPL):
   .stack        show the whole stack
   .clear        empty the stack
   .lcd [ascii]  show the calculator screen as braille (or ascii)
+  .shot [FILE]  save the 131x64 screen to FILE as a binary PBM (pixel-exact)
   .key KEY...   tap key(s) by name or hex code, then show the screen
                 (e.g. .key 1 2 enter); '.keys' lists the names
   .keys         list the .key names
@@ -715,6 +717,30 @@ def _print_chars(rpl):
                for s, c in sorted(rpl.NAMED.items(), key=lambda kv: kv[1])]
     for i in range(0, len(entries), 6):
         print("    " + "".join("%-10s" % e for e in entries[i:i + 6]))
+
+def _write_pbm(rpl, path):
+    """Write the live 131x64 LCD to `path` as a binary PBM (P4).
+
+    Pixel-exact: each lit LCD pixel becomes a 1 (black) bit, MSB-first, rows
+    padded to a byte.  Standard 'portable bitmap' -- viewers/ImageMagick read
+    it, and it round-trips losslessly for template matching.  Returns (w, h).
+    """
+    buf, rows, stride = rpl.emu.lcd_nibbles()
+    width = 131                              # visible LCD columns (buffer holds 144)
+    rowbytes = (width + 7) // 8
+    body = bytearray()
+    for y in range(rows):
+        rb = bytearray(rowbytes)
+        base = y * stride
+        for x in range(width):
+            if (buf[base + (x >> 2)] >> (x & 3)) & 1:
+                rb[x >> 3] |= 0x80 >> (x & 7)
+        body += rb
+    with open(path, "wb") as f:
+        f.write(b"P4\n%d %d\n" % (width, rows))
+        f.write(body)
+    return width, rows
+
 
 _KEYS_HELP = """.key names (case-insensitive; see docs/keymap.md):
   digits   0-9
@@ -756,6 +782,16 @@ def _meta(rpl, cmd):
     elif name == "lcd":
         ascii_mode = args and args[0].lower() == "ascii"
         print(rpl.emu.lcd_ascii() if ascii_mode else rpl.emu.lcd_braille())
+    elif name == "shot":
+        import time
+        path = os.path.expanduser(args[0]) if args else \
+            time.strftime("calc48-%Y%m%d-%H%M%S.pbm")
+        try:
+            w, h = _write_pbm(rpl, path)
+        except OSError as e:
+            print("  %s" % e)
+        else:
+            print("  wrote %s (%dx%d binary PBM)" % (path, w, h))
     elif name == "key":
         if not args:
             print("  usage: .key KEY...   names (a-z, 0-9, enter, del, back, "
@@ -878,7 +914,7 @@ def _init_readline():
             cands = ["." + c for c in _META_CMDS if ("." + c).startswith(text)]
         elif parts[0] == ".key":
             cands = sorted(n for n in KEY_NAMES if n.startswith(text.lower()))
-        elif parts[0] in (".store", ".load", ".save"):
+        elif parts[0] in (".store", ".load", ".save", ".shot"):
             import glob
             cands = [p + ("/" if os.path.isdir(p) else "")
                      for p in glob.glob(os.path.expanduser(text) + "*")]
